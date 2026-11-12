@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Rules - CT-Watchtower{% endblock %}
+{% block content %}
+
+{% from "_macros.html" import help %}
+
+{% if not form and active in pseudo %}
+  {# A pseudo tenant has no ruleset. That has to be said here, otherwise the screen
+     asks you to create a tenant although tenants exist. #}
+  <div class="empty empty-lead">
+    <h1 class="screen-title">Rules</h1>
+    <h2 class="heading">{{ pseudo[active] }} has no rules</h2>
+    <p class="small">
+      {% if active == 'all-tenants' %}
+        A collected view across all tenants. Rules are maintained with the tenant they
+        belong to; switch at the top right.
+      {% else %}
+        No scoring counts here: a certificate either chains through a revoked link or
+        it does not. The revocation list sits under
+        <a href="{{ url_for('ui.settings') }}">Settings</a>.
+      {% endif %}
+    </p>
+  </div>
+{% elif not form %}
+  <div class="empty empty-lead">
+    <h1 class="screen-title">Rules</h1>
+    <h2 class="heading">No tenant yet</h2>
+    <p class="small">A tenant is whatever is being watched: a brand, the name of a
+      public authority, your own company name.</p>
+    <button class="btn btn-primary btn-wide" id="new-tenant">Create a new tenant</button>
+  </div>
+{% else %}
+
+<div class="rules-head">
+  <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <h1 class="screen-title">Rules · {{ form.tenant.name }}</h1>
+      {% if not form.tenant.enabled %}
+        <span id="tenant-state" class="tag tag-warning">Disabled, no scoring</span>
+      {% elif form.shadow %}
+        <span id="tenant-state" class="tag tag-outline">Trial mode, no alerts, no feed</span>
+      {% else %}
+        <span id="tenant-state" class="tag tag-inverse">Live</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="buttons">
+    <button id="new-tenant" class="btn">+ New tenant</button>
+    <button id="trial-toggle" class="btn btn-dashed" data-trial="{{ 'true' if form.shadow else 'false' }}">
+      {{ 'Go live' if form.shadow else 'Start trial mode' }}</button>
+    <button id="toggle-tenant" class="btn" data-enabled="{{ 'true' if form.tenant.enabled else 'false' }}">
+      {{ 'Disable the tenant' if form.tenant.enabled else 'Switch the tenant back on' }}</button>
+    <button id="del-tenant" class="btn btn-danger" data-id="{{ form.tenant.id }}">Delete the tenant</button>
+  </div>
+</div>
+
+<div class="rules-shell">
+  <nav class="tabs" role="tablist" aria-orientation="vertical" aria-label="Sections of the ruleset">
+    {% for nr, ident, title in [
+      (1, 'search', 'What are we looking for?'),
+      (2, 'report', 'When does it report?'),
+      (3, 'never',  'What should never be reported?'),
+      (4, 'name',   'The name itself')] %}
+      <button class="tab" role="tab" id="tab-{{ ident }}" data-tab="{{ ident }}"
+              aria-controls="panel-{{ ident }}" aria-selected="{{ 'true' if nr == 1 else 'false' }}"
+              tabindex="{{ '0' if nr == 1 else '-1' }}">
+        <span class="tab-nr">{{ nr }}</span>
+        <span>
+          <span class="tab-title">{{ title }}</span>
+          {# The state in short: you do not have to open the tab to know it. #}
+          <span class="tab-sum" data-sum="{{ ident }}"></span>
+        </span>
+        {% if ident == 'never' and not form.own.allowlist.suppress %}
+          <span class="tab-warn" title="Without an exception the first finding is your own website">!</span>
+        {% endif %}
+      </button>
+    {% endfor %}
+  </nav>
+
+  <div class="rules-middle">
+
+    {# -- 1 · What are we looking for? ----------------------- #}
+    <div id="panel-search" class="tab-panel rule-cards" role="tabpanel" aria-labelledby="tab-search">
+      <div class="panel-headline">
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <h2 class="heading">What are we looking for?</h2>
+          <span class="small muted">Only anchor rules establish the brand reference.</span>
+        </div>
+        <button class="btn btn-primary" data-rule-add="1">+ New rule</button>
+      </div>
+      <div class="rule-register" data-rules role="list" aria-label="Rules of this tenant"></div>
+      <div data-rule-editor></div>
+    </div>
+
+    {# -- 2 · When does it report? -------------------------- #}
+    <div id="panel-report" class="tab-panel" role="tabpanel" aria-labelledby="tab-report" hidden>
+      <h2 class="heading">When does it report?
+        {{ help('Every rule that applies gives points. Those are added up. Nothing else happens. The sum is the score of the finding, 100 at most.') }}
+      </h2>
+      <div class="scale-band" aria-hidden="true">
+        <span class="zone zone-dropped" id="scale-persist"></span>
+        <span class="zone zone-info"></span>
+        <span class="zone zone-warning" id="scale-warning"></span>
+        <span class="zone zone-alert" id="scale-alert"></span>
+        <span class="cap"></span>
+      </div>
+      {% if not auto_on %}
+        <div class="warn-box">
+          <b>"Enrich by itself" is switched off.</b> The slider below only takes effect
+          once it is on. <a href="{{ url_for('ui.settings') }}">Settings</a>.
+        </div>
+      {% endif %}
+      <div style="display:flex; flex-direction:column; gap:18px; max-width:620px;">
+        {% for key, label, helptext in [
+          ('persist', 'Store at all', 'Everything below this counts as too inconspicuous and is dropped. It shows up nowhere, not even in the live stream.'),
+          ('warning', 'Send a warning', 'From here on it alerts: a possible, but not yet certain hit.'),
+          ('alert', 'Raise an alert', 'The highest urgency. Here an immediate check pays off.'),
+          ('anchor_missing_cap', 'Cap without a brand reference', 'If no rule that establishes the brand reference applies, a finding gets to this many points at most, no matter how much else adds up. That keeps the stream quiet, where some lure word turns up all the time.'),
+          ('enrich_from', 'Enrich by itself from', 'From here on the application fetches registration data and DNS records without anybody opening the finding. That is the precondition for campaigns: they group by registrar, nameserver and network, which is data that does not exist without enrichment. Every query goes to somebody else\'s registry, hence the main switch and the daily caps. The caps apply to all tenants together: a loud one can eat the daily budget before a quiet one gets its turn, which is why each has a threshold of its own.')] %}
+          {% set value = (form.scoring.anchor_missing_cap if key == 'anchor_missing_cap' else form.thresholds[key]) %}
+          <label class="slider-row">
+            <span class="label"><b>{{ label }}</b>{{ help(helptext) }}</span>
+            <input type="range" class="rule-slider {{ {'warning': 'warn', 'alert': 'alert'}.get(key, '') }}"
+                   id="in-{{ key }}" min="0" max="100" value="{{ value | round | int }}">
+            <b class="slider-val" id="val-{{ key }}">{{ value | round | int }}</b>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# -- 3 · What should never be reported? ---------------- #}
+    <div id="panel-never" class="tab-panel" role="tabpanel" aria-labelledby="tab-never" hidden>
+      <h2 class="heading">What should never be reported?
+        {{ help('Your own domains, and names that are only similar by chance. Another company with a related name would otherwise turn up with every certificate it gets. An entry with a leading dot (.example.com) covers all subdomains.') }}
+      </h2>
+      {% if not form.own.allowlist.suppress %}
+        <div class="warn-box">
+          <b>Your own domains are still missing.</b> Without an exception the first
+          finding is your own website.
+        </div>
+      {% endif %}
+      <div class="groups" data-suppress></div>
+      {% if form.inherited_suppress %}
+        <details>
+          <summary class="small muted">{{ form.inherited_suppress | length }} inherited through includes (read-only)</summary>
+          <div class="chips" style="margin-top:var(--space-2);">
+            {% for t in form.inherited_suppress %}<span class="chip chip-quiet">{{ t }}</span>{% endfor %}
+          </div>
+        </details>
+      {% endif %}
+    </div>
+
+    {# -- 4 · The name itself ------------------------------- #}
+    <div id="panel-name" class="tab-panel" role="tabpanel" aria-labelledby="tab-name" hidden>
+      <h2 class="heading">The shape of the name
+        {{ help('Points for the shape of the domain, independent of the words. Important with multi-part terms: if the term you are looking for carries a hyphen itself, these traits count it. Then there are points for simply writing the name down, and the thresholds want raising.') }}
+      </h2>
+      <div style="display:flex; flex-direction:column; gap:18px; max-width:620px;">
+        {% for path, label, value, mn, mx, step, hint in [
+          ('structure.hyphen_count.threshold', 'From how many hyphens', form.structure.hyphen_count.threshold, 0, 8, 1,
+           'Below that there are no points. German authority and place names often carry one already.'),
+          ('structure.hyphen_count.weight_per_hyphen', 'Points per hyphen', form.structure.hyphen_count.weight_per_hyphen, 0, 15, 1, ''),
+          ('structure.shannon_entropy.threshold', 'From which letter variety', form.structure.shannon_entropy.threshold, 2, 5, 0.1,
+           'Measures how random the name looks. Any German compound reaches 3.6; truly random names sit above 4.2.'),
+          ('structure.shannon_entropy.weight', 'Points for that', form.structure.shannon_entropy.weight, 0, 30, 1, ''),
+          ('structure.brand_in_subdomain_only.weight', 'Brand only left of the actual name', form.structure.brand_in_subdomain_only.weight, 0, 50, 1,
+           'The classic trick: brand.com.something-else.top. The brand sits on the left, what is registered is something else entirely. It also fires when somebody simply uses the brand as a subdomain, though.'),
+          ('structure.total_length.threshold', 'From which name length', form.structure.total_length.threshold, 0, 60, 1, '')] %}
+          <label class="slider-row">
+            <span class="label"><b>{{ label }}</b>{% if hint %}{{ help(hint) }}{% endif %}</span>
+            <input type="range" class="rule-slider struct" data-path="{{ path }}" id="in-{{ path }}"
+                   min="{{ mn }}" max="{{ mx }}" step="{{ step }}" value="{{ value }}">
+            <b class="slider-val" id="val-{{ path }}">{{ value }}</b>
+          </label>
+        {% endfor %}
+      </div>
+
+      <h2 class="heading" style="margin-top:var(--space-5);">Risky endings
+        {{ help('Endings with a conspicuous amount of abuse. That too is a property of the name and not a search for a word, which is why it sits here and not with the rules.') }}
+      </h2>
+      <div class="groups" data-groups="tlds"></div>
+      {% if form.inherited_tlds %}
+        <details>
+          <summary class="small muted">{{ form.inherited_tlds | length }} inherited through includes (read-only)</summary>
+          <div class="chips" style="margin-top:var(--space-2);">
+            {% for t in form.inherited_tlds %}<span class="chip chip-quiet">{{ t }}</span>{% endfor %}
+          </div>
+        </details>
+      {% endif %}
+      <button class="btn btn-dashed" data-group-add="tlds" style="align-self:flex-start;">+ New group</button>
+    </div>
+
+    <div class="save-bar">
+      <button id="rules-save" class="btn btn-primary btn-wide">Save</button>
+      <span id="rules-state" role="status"></span>
+      <span class="target">saves to
+        <span class="mono" style="color:var(--color-text);">rules/{{ form.tenant.id }}.yaml</span></span>
+    </div>
+  </div>
+
+  {# Stays put on every tab: what was built, and a field to try it out. #}
+  <aside class="rail" aria-label="Prose and test field, always visible">
+    <div class="testbox">
+      <span class="kicker">Test field · computes with the unsaved state</span>
+      <div class="search-field">
+        <input id="test-domain" class="input" placeholder="e.g. velton-security-login.top"
+               aria-label="A made-up domain to score">
+        <button id="test-run" class="btn">Score it</button>
+      </div>
+      <div id="test-result" class="test-result" role="status"></div>
+    </div>
+    <div class="prose">
+      <span class="kicker">The ruleset in sentences · live</span>
+      <div id="prose-content"><p class="small muted">loading ...</p></div>
+    </div>
+  </aside>
+</div>
+
+<script type="application/json" id="rule-state">{{ {
+    'tenant': form.tenant.id,
+    'own': form.own
+  } | tojson }}</script>
+{% endif %}
+
+<dialog id="tenant-dialog">
+  <form method="dialog" id="tenant-form">
+    <div class="dialog-head"><h2 class="dialog-title">New tenant</h2></div>
+    <label class="field"><span class="field-label">Name</span>
+      <input class="input" id="nt-name" placeholder="Velton Ltd" required></label>
+    <label class="field"><span class="field-label">ID (lower case, with hyphens)</span>
+      <input class="input" id="nt-id" placeholder="velton" pattern="[a-z0-9]+(-[a-z0-9]+)*" required></label>
+    <div class="error" id="nt-error"></div>
+    <div class="dialog-actions">
+      <button class="btn" value="cancel" formnovalidate>Cancel</button>
+      <button class="btn btn-primary" id="nt-create" value="ok">Create</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="delete-dialog">
+  <form method="dialog" id="delete-form">
+    <div class="dialog-head dialog-danger"><h2 class="dialog-title">Delete the tenant</h2></div>
+    <p class="small">Delete tenant "<b id="dd-id"></b>" together with its rule file?</p>
+    <div id="dd-findings" class="del-warn" hidden>
+      <div class="del-count"><span id="dd-count"></span></div>
+      <div class="small">findings would be deleted along with it, irreversibly.</div>
+      <label class="field" style="margin-top:var(--space-3);">
+        <span class="field-label">Type the tenant id to confirm</span>
+        <input class="input" type="text" id="dd-ack" autocomplete="off" spellcheck="false">
+      </label>
+    </div>
+    <div class="error" id="dd-error"></div>
+    <div class="dialog-actions">
+      <button class="btn" value="cancel" formnovalidate>Cancel</button>
+      <button class="btn btn-danger-fill" id="dd-ok" value="ok">Delete</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+{% block script %}{% endblock %}

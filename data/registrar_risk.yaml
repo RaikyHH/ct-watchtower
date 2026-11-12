@@ -1,0 +1,36 @@
+# Registrars with a conspicuous share of abuse, or with whois privacy in front.
+#
+# Used by `post_enrichment.privacy_registrar` (a positive weight). The weight should
+# stay small: private people, clubs and small companies register here too, who simply
+# do not want their address standing in the whois. That is a legitimate interest and
+# the normal case since the GDPR - a hit on its own says little.
+#
+# What gets included is whoever meets one of these two:
+#   1. The registrar puts a trustee in front of the whois entry by default, so that
+#      the holder cannot be determined without going over abuse.
+#   2. It turns up above average often in ICANN compliance's public quarterly
+#      reports and at the phishing reporting bodies.
+#
+# Deliberately NOT here: large registrars with an open retail business, over which
+# simply most of it runs (GoDaddy, IONOS, OVH, Namecheap, Cloudflare, Google).
+# Their frequency in abuse lists follows their market size, not their policy -
+# including them would mean burdening a large part of the net across the board.
+#
+# Names match as a substring without regard to case, and IANA ids match exactly.
+# Maintenance: give entries a date and a reason, and check them regularly - a
+# registrar that changes its behaviour belongs out again.
+
+registrars:
+  # a trustee in the whois by default
+  - "privacyprotect"
+  - "whoisguard"
+  - "domains by proxy"
+  - "contact privacy"
+  - "perfect privacy"
+  - "withheld for privacy"
+  - "identity protect"
+  - "privacy service provided"
+  - "super privacy service"
+  - "redacted for privacy"
+
+iana_ids: []

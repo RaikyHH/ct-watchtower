@@ -1,0 +1,23 @@
+# TLD groups by the amount of abuse (§5.2).
+tlds:
+  default_weight: 0
+  groups:
+    - name: "high-risk"
+      weight: 25
+      list: [top, xyz, cfd, sbs, icu, rest, click, live, quest, bond, cyou,
+             lol, mom, zip, mov, buzz, work, fit, beauty, makeup, skin, hair]
+    - name: "elevated"
+      weight: 14
+      list: [online, site, shop, store, info, biz, pro, link, club, space,
+             website, tech, host, fun, today]
+    - name: "free_historically"
+      weight: 20
+      list: [tk, ml, ga, cf, gq]
+    - name: "regional_unexpected"
+      description: "ccTLDs unexpected for the brands a tenant watches"
+      weight: 10
+      list: [ru, cn, br, in, ir, kp, su, tw]
+  overrides:
+    - description: "registries with a serious registration check"
+      tld: [de, ch, at, bank, insurance]
+      weight: -10

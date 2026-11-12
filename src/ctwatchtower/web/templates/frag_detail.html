@@ -1,0 +1,205 @@
+{% set expl = f.explanation if f.explanation is mapping else {} %}
+{% set contribs = expl.get('contributions', []) %}
+{% set peak = (contribs | map(attribute='pts') | map('abs') | max) if contribs else 1 %}
+<div class="scrim" data-close="1"></div>
+{% from "_macros.html" import help %}
+{# `data-enrich-state` tells the reload in app.js whether the enrichment is still due. #}
+<section class="panel" role="dialog" aria-modal="true" aria-labelledby="panel-title"
+         data-id="{{ f.id }}" data-enrich-state="{{ f.enrich_state }}">
+
+  {# The score as a scale across the whole width. You see it before you read. #}
+  <div class="panel-cap" style="--score:{{ f.score }}%;" role="img"
+       aria-label="Score {{ f.score }} out of 100"></div>
+
+  <div class="panel-head">
+    <div style="display:flex; flex-direction:column; gap:6px; min-width:0;">
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <span class="tag tag-{{ f.severity }}">{{ SEV_LABEL.get(f.severity, f.severity) }}</span>
+        <span class="small muted">first seen {{ rel_time(f.first_seen) }}
+          {%- if f.ct_log_index is not none and f.ct_log_index >= 0 %}
+            · entry no. {{ '{:,}'.format(f.ct_log_index) }} in the CT log
+          {%- endif %}</span>
+      </div>
+      <h2 id="panel-title" class="panel-title dom title-{{ f.severity }}">{{ render_domain(f.domain) }}</h2>
+      {% if f.is_idn and f.unicode_form %}
+        <span class="dom-uni">IDN · Unicode form
+          <span class="dom">{{ render_domain(f.unicode_form) }}</span> can deceive</span>
+      {% endif %}
+    </div>
+    <div style="display:flex; gap:8px; align-items:flex-start; flex-shrink:0;">
+      <button class="btn copy" data-copy="{{ f.domain }}">Copy</button>
+      <button class="btn btn-icon" data-close="1" aria-label="Close the detail panel">Esc &#10005;</button>
+    </div>
+  </div>
+
+  <div class="panel-grid">
+
+    <section>
+      <div class="score-block">
+        <b class="dseg">{{ f.score }}</b>
+        <span class="small" style="display:flex; flex-direction:column; gap:2px; padding-bottom:4px;">
+          <b>worth checking, not a verdict</b>
+          {% if f.score_enriched is not none and f.score_enriched != f.score %}
+            {# Information, not a correction: the score stays as it is. #}
+            <span class="muted">with registration data: <b style="color:var(--color-text);">{{ f.score_enriched }}</b>, the score stays</span>
+          {% endif %}
+        </span>
+      </div>
+
+      {% if exoneration %}
+        <div class="exoneration" id="exoneration">
+          <b>The registration data speaks against this finding.</b>
+          {% if exoneration.reason %}{{ exoneration.reason }}.{% endif %}
+          With registration data the score would be {{ exoneration.score }}
+          {%- if exoneration.below_threshold %}, below the threshold from which
+          anything is stored at all{% endif %}.
+          <div class="exoneration-buttons">
+            <button class="btn btn-primary" data-set-status="false_positive" data-id="{{ f.id }}">False positive</button>
+            <button class="btn" id="exoneration-close" aria-label="Hide this note">Hide</button>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if contribs %}
+        <div style="display:flex; flex-direction:column; gap:8px; border-top:2px solid var(--color-rule); padding-top:12px;">
+          <span class="kicker">Contributions to the score</span>
+          {% for c in contribs %}
+            <div class="contrib">
+              <span class="bar"><i class="{{ 'neg' if c.pts < 0 }}" style="width:{{ (100 * (c.pts|abs) / peak) | round(1) }}%;"></i></span>
+              <span style="display:flex; gap:8px; align-items:baseline; min-width:0;">
+                <span class="rule-tag">{{ c.rule }}{% if c.type %} ({{ c.type }}){% endif %}</span>
+                {% if c.rule.startswith('anchor:') or c.rule.startswith('rule:') or c.rule.startswith('lure:') %}
+                  <a href="{{ url_for('ui.rules') }}?t={{ f.tenant_id }}#panel-search" class="small muted">to the rule</a>
+                {% endif %}
+              </span>
+              <span class="points">{{ '%+g' % c.pts }}</span>
+            </div>
+          {% endfor %}
+          {% if expl.get('combos_applied') %}
+            <div class="contrib">
+              <span class="bar"><i style="width:{{ (100 * (expl.get('combo_bonus') or 0) / peak) | round(1) }}%;"></i></span>
+              <span><span class="rule-tag">Combo bonus {{ expl.get('combos_applied') | join(', ') }}</span></span>
+              <span class="points">{{ '%+g' % (expl.get('combo_bonus') or 0) }}</span>
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </section>
+
+    <section>
+      <span class="kicker">Certificate &amp; registration</span>
+      {# Filled by app.js once the click has requested the enrichment. #}
+      <span id="enrich-note" class="hint-row" role="status" hidden></span>
+      <div class="grid2">
+        {% for label, value in [
+          ('Issuer', f.issuer_o),
+          ('Valid until', (f.cert_not_after or '')[:10]),
+          ('Names in the certificate', f.san_count),
+          ('Registrar', f.registrar),
+          ('Domain created', (f.domain_created or '')[:10]),
+          ('Expires', (f.domain_expires or '')[:10]),
+          ('Last changed', (f.domain_changed or '')[:10]),
+          ('EPP status', (f.epp_status | join(', ')) if (f.epp_status is sequence and f.epp_status is not string) else f.epp_status),
+          ('Network / country', (f.asn ~ ' · ' ~ f.country) if f.asn else None)] %}
+          <div>
+            <span class="field-label normal">{{ label }}</span>
+            {# Unknown stays visibly empty, never invented. Dimmed, so nine empty
+               fields do not look like an error. #}
+            <span class="value {{ 'empty' if value in (None, '', []) }}">{{ value if value not in (None, '', []) else '-' }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <div style="display:grid; grid-template-columns:110px minmax(0,1fr); gap:4px 12px; font-size:13px;">
+        <span class="muted">Nameservers</span>
+        <span class="mono {{ 'dim' if not f.nameservers }}">
+          {%- if f.nameservers %}{% for n in f.nameservers %}{{ render_domain(n) }}{% if not loop.last %} · {% endif %}{% endfor %}{% else %}-{% endif -%}
+        </span>
+        <span class="muted">A records</span>
+        <span class="mono {{ 'dim' if not f.a_records }}">
+          {{- (f.a_records | join(', ')) if f.a_records else '-' }}
+          {%- if f.has_mx is not none %} · MX {{ 'yes' if f.has_mx else 'no' }}{% endif -%}
+        </span>
+      </div>
+      {% if f.related_names %}
+        <div style="display:flex; flex-direction:column; gap:6px; border-top:2px solid var(--color-rule); padding-top:12px;">
+          <span class="kicker">Related names in the same certificate</span>
+          <div class="chips">
+            {% for rn in f.related_names %}<span class="chip chip-quiet dom">{{ render_domain(rn) }}</span>{% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    {# The fifth guard rail, made visible: wherever a click reaches a third party, it
+       has to say so. #}
+    <section>
+      <span class="kicker">Outwards</span>
+
+      <span class="small" style="font-weight:700;">Look up</span>
+      <div class="services">
+        {% for label, href in analysis_links(f) %}
+          <a href="{{ href }}" target="_blank" rel="noopener noreferrer">{{ label }} &#8599;</a>
+        {% endfor %}
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--color-divider); padding-top:12px;">
+        <span class="small" style="font-weight:700;">Trigger an analysis · the service visits the page</span>
+        {% for service, label in SCAN_SERVICES %}
+          {% set scan = (f.scans or {}).get(service) %}
+          {% if scan and scan.state == 'running' %}
+            {# Triggered, but not through at the service yet. The hourglass picks the
+               tracking back up by itself, even if the panel was closed in between,
+               because the state sits on the finding and not only in the browser. #}
+            <span class="scan-running" role="status" data-scan-watch="{{ service }}"
+                  data-id="{{ f.id }}" data-result="{{ scan.result }}"
+                  data-visibility="{{ scan.visibility }}"
+                  style="align-self:flex-start;">Scan running, usually takes half a minute.</span>
+          {% elif scan %}
+            <a class="btn" href="{{ scan.result }}" target="_blank" rel="noopener noreferrer"
+               style="align-self:flex-start;">{{ label }} · result ({{ scan.visibility }}) &#8599;</a>
+          {% else %}
+            <button class="btn btn-dashed" data-scan="{{ service }}" data-id="{{ f.id }}"
+                    style="align-self:flex-start;"
+                    {% if not scan_enabled %}disabled title="Switched off. Switch it on under Settings"{% endif %}>
+              Trigger {{ label }} &#8599;</button>
+          {% endif %}
+        {% endfor %}
+        <span id="scan-note" class="small muted"><code>{{ scan_visibility }}</code> ·
+          {{ scan_daily }}/day per service{{ help('A public scan is visible to the
+          operator of the site within minutes. Both services assume you are allowed
+          to scan the address.') }}</span>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--color-divider); padding-top:12px; font-size:13px;">
+        <span class="small" style="font-weight:700;">Report abuse</span>
+        {% if abuse.to and abuse.mailto_ok %}
+          <a href="{{ abuse.mailto }}">Abuse report to {{ abuse.to }} &#9993; · opens your mail program</a>
+        {% elif abuse.to %}
+          {# Too long for `mailto:` on Windows. Then copy rather than truncate. #}
+          <span class="small muted">The report is too long for the mail program, please
+            copy it. Recipient: {{ abuse.to }}</span>
+        {% else %}
+          <span class="small muted">{{ abuse.reason }}</span>
+        {% endif %}
+        <span class="small muted">Template: <code>config/abuse_templates/</code></span>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn copy" data-copy="{{ abuse.body }}">Copy the report</button>
+          {# Closing the loop: sending happens in the mail program, and the application
+             never hears about it. Reported findings are never deleted. #}
+          {% if f.status != 'reported' %}
+            <button class="btn" data-set-status="reported" data-id="{{ f.id }}">Mark as reported</button>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="panel-foot">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-primary" data-set-status="confirmed" data-id="{{ f.id }}">Confirm <kbd>c</kbd></button>
+      <button class="btn" data-set-status="false_positive" data-id="{{ f.id }}">False positive <kbd>f</kbd></button>
+    </div>
+    <span class="small">Status: <b>{{ STATUS_LABEL.get(f.status, f.status) }}</b>{% if f.status_note %} · {{ f.status_note }}{% endif %}</span>
+  </div>
+</section>

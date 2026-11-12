@@ -1,0 +1,30 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.db
+*.sqlite3
+feeds/
+data/GeoLite2-*.mmdb
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# The coverage measurement file: it is created afresh on every test run
+.coverage
+
+# §14.5: productive rulesets with customer names do not belong in the repository.
+# The template, the shared building blocks and the examples stay in.
+rules/*.yaml
+!rules/_template.yaml
+
+# Hostname samples and stream recordings: large, transient, not reproducible
+data/samples/
+
+# Backups out of scripts/backup.sh - they contain productive rulesets and findings
+backups/
+
+# Screenshots out of browser checks
+*.png

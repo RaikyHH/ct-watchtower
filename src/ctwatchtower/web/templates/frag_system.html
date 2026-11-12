@@ -1,0 +1,202 @@
+{% from "_macros.html" import help %}
+{% set degraded = m.nodes | rejectattr('state', 'in', ['ok', 'off']) | list %}
+<div class="sys-head">
+  <div class="span4">
+    <h1 class="screen-title">System</h1>
+    <span class="small muted">reloads every 4 s</span>
+  </div>
+  <div class="metrics"><span class="field-label">Certificates per second</span>
+    <span><b class="dseg">{{ m.certs_per_sec }}</b></span></div>
+  <div class="metrics"><span class="field-label">Queue</span>
+    <span><b class="dseg">{{ m.queue_depth_pct }}</b>
+      <span class="unit">% · {{ m.queue_depth }} of {{ m.queue_max }}</span></span></div>
+  <div class="metrics"><span class="field-label">Running queries</span>
+    <span><b class="dseg">{{ m.active_enrichments }}</b></span></div>
+  <div class="metrics"><span class="field-label">Cache hit ratio</span>
+    <span><b class="dseg">{{ (100 * m.cache_hit_ratio) | round | int }}</b>
+      <span class="unit">%</span></span></div>
+</div>
+
+{% if degraded %}
+  <div class="banner banner-error" role="alert">
+    Degraded stations: {{ degraded | map(attribute='label') | join(', ') }}.
+  </div>
+{% endif %}
+
+<div class="sys-grid">
+
+<section>
+  <h2>Queue · latest measurements</h2>
+  <div class="spectrum-live" style="height:120px;" role="img"
+       aria-label="History of the queue depth">
+    {% for column in chart %}
+      <div class="column">{% for kind in column %}<i class="{{ kind }}"></i>{% endfor %}</div>
+    {% endfor %}
+  </div>
+  <div style="display:flex; flex-wrap:wrap; gap:20px;" class="small muted">
+    <span style="display:flex; gap:6px; align-items:center;"><span class="dot dot-warning"></span>from 50 % it throttles</span>
+    <span style="display:flex; gap:6px; align-items:center;"><span class="dot dot-alert"></span>from 80 % the inflow pauses</span>
+    <span>Peak {{ m.queue_depth_pct }} %{{ ' · no backlog' if m.queue_depth_pct < 50 }}</span>
+  </div>
+</section>
+
+<section>
+  <h2>Pipeline</h2>
+  <div class="pipeline">
+    {% for n in m.nodes %}
+      <div class="station {{ 'inactive' if n.state == 'off' else ('degraded' if n.state != 'ok') }}">
+        <span class="station-name">{{ n.label }}</span>
+        <span class="small {{ 'muted' if n.state == 'off' }}">{{ n.state }}</span>
+        <b class="station-metric">{{ '{:,}'.format(n.count) }}</b>
+      </div>
+      {% if not loop.last %}<span class="connector" aria-hidden="true">&rarr;</span>{% endif %}
+    {% endfor %}
+  </div>
+  <span class="small muted">Throughput since the start, certificates per station</span>
+</section>
+
+{# §8.2.6: a degraded channel has to be visible, otherwise you wait for alerts that
+   never come. #}
+<section>
+  <h2>Alerting</h2>
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <span class="tag {{ 'tag-off' if m.notify.state == 'off' else ('tag-warning' if m.notify.state != 'ready') }}">{{ m.notify.state }}</span>
+    <span>
+      {% if m.notify.state == 'off' %}Switched off. Switch it on under
+        <a href="{{ url_for('ui.settings') }}">Settings</a>, group "Alerting".
+      {% elif m.notify.state == 'no target configured' %}Switched on, but a target is
+        missing: a webhook address or mail under <a href="{{ url_for('ui.settings') }}">Settings</a>.
+      {% elif m.notify.state == 'degraded' %}The endpoint did not answer last time.
+      {% else %}{{ m.notify.sent }} messages sent · {{ m.notify.last_hour }}/{{ m.notify.max_per_hour }} in the last hour · {{ m.notify.queued }} in the collection window
+        {%- if m.notify.suppressed %} · {{ m.notify.suppressed }} suppressed{% endif %}
+      {% endif %}
+    </span>
+  </div>
+  {# One row per channel: "ready" for the whole thing is no use when the webhook works
+     and the mail is stuck. #}
+  {% for k in m.notify.channels %}
+    <div class="feed-row">
+      <b>{{ k.kind }}</b>
+      <span class="links">
+        <span class="{{ 'muted' if not k.degraded }}">{{ k.target }}</span>
+        {% if k.degraded %}<span class="tag tag-warning">stuck</span>{% endif %}
+      </span>
+    </div>
+  {% endfor %}
+  {% if m.notify.channels %}
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:var(--space-2);">
+      <button class="btn" id="test-mail" {% if not m.notify.mail_ready %}disabled
+              title="Set it up first: switch mail on, sender, recipients and route"{% endif %}>
+        Send a test message</button>
+      <span id="test-mail-note" class="small muted">Sends a real mail to the configured
+        recipients.</span>
+    </div>
+  {% endif %}
+</section>
+
+{# The daily caps are the promise to the operators of RDAP and DoH: single queries
+   yes, bulk queries no (§16). Whoever cannot see them cannot keep to them. #}
+<section>
+  <h2>Daily caps{% if m.enrich_quota %} · UTC day {{ m.enrich_quota.day }}{% endif %}</h2>
+  {% if m.enrich_quota %}
+    {% for source, limit in m.enrich_quota.limits.items() %}
+      {% set used = m.enrich_quota.counts.get(source, 0) %}
+      <div class="limit{{ ' exhausted' if source in m.enrich_quota.exhausted }}">
+        <b>{{ source | upper }}</b>
+        <span class="bar"><i style="width:{{ (100 * used / limit) | round(1) if limit else 0 }}%;"></i></span>
+        <span>{{ used }} of {{ limit }}</span>
+        {% if source in m.enrich_quota.exhausted %}
+          <b>exhausted until tomorrow</b>
+        {% else %}
+          <b class="free">{{ limit - used }} left</b>
+        {% endif %}
+      </div>
+    {% endfor %}
+    <div class="feed-row">
+      <b>By itself</b>
+      <span class="links">
+        {% if m.auto_on %}
+          <span>on · {{ m.auto_enriched }} findings since the start</span>
+        {% else %}
+          <span class="muted">off · only on a click ·
+            <a href="{{ url_for('ui.settings') }}">Settings</a></span>
+        {% endif %}
+      </span>
+    </div>
+  {% else %}
+    <span class="small muted">Switched off · no queries outwards ·
+      <a href="{{ url_for('ui.settings') }}">Settings</a></span>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Feeds per tenant</h2>
+  {% for t in feed_tenants %}
+    <div class="feed-row">
+      <b>{{ t.name }}</b>
+      <span class="links">
+        {% if t.shadow %}
+          <span class="muted">Trial mode, no feed.</span>
+        {% else %}
+          {% for kind, path in [('JSON', 'indicators.json'), ('CSV', 'indicators.csv'),
+                               ('JSONL', 'indicators.jsonl'), ('TXT', 'domains.txt')] %}
+            <a href="/feed/{{ t.id }}/{{ path }}">{{ kind }}</a>
+          {% endfor %}
+          <button class="btn copy" data-copy="/feed/{{ t.id }}/indicators.json">Copy the link</button>
+        {% endif %}
+      </span>
+    </div>
+  {% else %}
+    <span class="small muted">No tenant yet.</span>
+  {% endfor %}
+</section>
+
+{# Revoked certificates hang off no brand but off the web PKI, so they sit here and
+   not with the findings. #}
+<section>
+  <h2>Revoked certificates</h2>
+  {% if m.revocation.off %}
+    <span class="small muted">Syncing switched off ·
+      <a href="{{ url_for('ui.settings') }}">Settings</a></span>
+  {% else %}
+    <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;">
+      <span class="tag {{ 'tag-warning' if m.revocation.new else 'tag-outline' }}">
+        {{ m.revocation.new }} new</span>
+      <span class="small muted">{{ m.revocation.revocations }} revocations ·
+        {{ m.revocation.hits }} hits in total</span>
+    </div>
+    {% if m.revocation.latest %}
+      <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+        {% for f in m.revocation.latest %}
+          <div class="feed-row" style="grid-template-columns:minmax(0,2fr) minmax(0,2fr) auto;">
+            <span class="mono" style="overflow-wrap:anywhere;">{{ f.names[0] if f.names else '-' }}{% if f.names_total > 1 %} +{{ f.names_total - 1 }}{% endif %}</span>
+            <span class="small muted">via {{ f.link_subject or f.revoked_issuer }}</span>
+            <span class="small muted">{{ f.last_seen[:16].replace('T', ' ') }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <span class="small muted">Nothing has turned up. That is the normal case.</span>
+    {% endif %}
+  {% endif %}
+</section>
+
+<section>
+  <h2>Data sources</h2>
+  {% for l in m.ct_logs %}
+    <div class="feed-row" style="grid-template-columns:minmax(0,1fr) auto auto auto;">
+      <span class="mono" style="overflow-wrap:anywhere;">{{ l.name }}</span>
+      <span class="readout {{ 'on' if l.state == 'connected' }}">{{ l.state }}</span>
+      <span>{{ '{:,}'.format(l.certs_seen) }} seen</span>
+      <span class="muted">{{ '{:,}'.format(l.duplicates) }} duplicates</span>
+    </div>
+  {% endfor %}
+</section>
+
+</div>
+
+<div class="sys-foot">
+  <span>Prefilter pass ratio <b>{{ (100 * m.prefilter_pass_ratio) | round(2) }} %</b></span>
+  <span>Findings since the start <b>{{ m.findings_total }}</b></span>
+  <span>Open live connections <b>{{ m.sse_subscribers }}</b></span>
+</div>

@@ -1,0 +1,18 @@
+Domain Name: amazonaws.com.cn
+ROID: 20060113s10011s49558799-cn
+Domain Status: serverDeleteProhibited
+Domain Status: serverUpdateProhibited
+Domain Status: clientTransferProhibited
+Domain Status: serverTransferProhibited
+Registrant: 宁夏西云数据科技有限公司
+Registrant Contact Email: hostmaster@example.cn
+Sponsoring Registrar: 厦门易名科技股份有限公司
+Name Server: ns-3287.awsdns-cn-13.cn
+Name Server: ns-intl-3287.awsdns-cn-13.cn
+Name Server: ns-2419.awsdns-cn-23.biz
+Name Server: ns-1733.awsdns-cn-44.net
+Name Server: ns-630.awsdns-cn-39.com
+Name Server: ns-intl-630.awsdns-cn-39.com
+Registration Time: 2006-01-13 06:45:02
+Expiration Time: 2027-01-13 06:45:02
+DNSSEC: unsigned

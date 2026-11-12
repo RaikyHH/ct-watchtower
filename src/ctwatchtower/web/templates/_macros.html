@@ -1,0 +1,9 @@
+{# Shared building blocks of the UI.
+
+   `help` is the place for everything that explains **why** something exists:
+   trade-offs, background, consequences worth knowing but not worth reading on every
+   glance. What stays visible is what you need in order to act: label, value, unit,
+   state.
+
+   A `details` instead of a tooltip, so it opens from the keyboard too. #}
+{% macro help(text) %}<details class="help" data-help="{{ text }}"><summary aria-label="Help">?</summary><p>{{ text }}</p></details>{% endmacro %}

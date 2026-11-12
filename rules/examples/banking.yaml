@@ -1,0 +1,215 @@
+# The worked example from §5.2 of the specification. Not an active tenant: the
+# loader skips everything under `examples/`.
+#
+# ALL THE BRAND NAMES IN HERE ARE INVENTED. They exist so the rule language can be
+# shown end to end without naming a real company. Replace them with the names you
+# actually watch; nothing else in this file has to change.
+#
+#   paylio      a payment provider, the main brand of this example
+#   kavano      a payment provider
+#   stellax     a payment provider whose omission `stella` is an everyday word
+#   vantabank   a bank
+#   northvault  a bank
+#   cardex      a card network
+#   payro       a mobile wallet; it sits inside `payroll`, so whole words only
+#   zelo        a short brand: four letters, found only as a whole token
+apiVersion: ctwatchtower/v2
+kind: RuleSet
+
+includes:
+- common/lures_en.yaml
+- common/tlds_highrisk.yaml
+- common/allowlist_cloud.yaml
+- common/post_enrichment.yaml
+
+tenant:
+  id: banking
+  name: "Banking and payment"
+  description: "Phishing against banks and payment providers (invented brands)"
+  enabled: true
+  tlp: "clear"
+
+thresholds:
+  persist: 17
+  info: 24
+  warning: 37
+  alert: 64
+  enrich_from: 28
+  feed_from: 37
+
+scoring:
+  require_anchor: true
+  anchor_missing_cap: 9
+  max_combo_bonus: 64
+  top_n: 12
+
+anchors:
+- description: "Payment providers"
+  terms: [paylio, kavano, stellax]
+  weight: 30
+  # `stellar` is one replacement away from `stellax` and an everyday word at the
+  # same time. Without the exception every `stellar-*.com` would be a finding.
+  # The exception has to be a word that is not a prefix of the brand: `stella`
+  # would take `stellax` apart as well and the brand would never match again.
+  exclude: [stellar]
+  owned_domains: [paylio.com, paylio.net, kavano.com, stellax.com]
+  match:
+    exact: true
+    fuzzy: {enabled: true, max_distance: 2, min_term_length: 5}
+    homoglyph: true
+    permutations:
+      enabled: true
+      kinds: [omission, insertion, transposition, replacement, hyphenation,
+          bitsquatting, vowel_swap, repetition, double_char]
+
+- description: "Banks"
+  terms: [vantabank, northvault]
+  weight: 32
+  owned_domains: [vantabank.com, northvault.com]
+  match:
+    exact: true
+    fuzzy: {enabled: true, max_distance: 2}
+    homoglyph: true
+    permutations: {enabled: true}
+
+- description: "Card networks: exact and homoglyph only, they are short and common"
+  terms: [cardex]
+  weight: 22
+  # A six-letter brand is a prefix of longer words. Measured: `cardexpress` alone
+  # produced a finding a day.
+  exclude: [cardexpress]
+  owned_domains: [cardex.com]
+  match: {exact: true, homoglyph: true}
+
+- description: "Short brands: found as a whole token only"
+  terms: [payro, zelo]
+  weight: 26
+  # `payro` is a prefix of `payroll`, which draws certificates all the time.
+  exclude: [payroll]
+  # `payro` sits in `payroll`, `zelo` in `zelophobia` and in surnames. The engine
+  # finds terms this short as a whole token anyway (§4.2), and generated typos of
+  # them would match almost anything, so no fuzzy and no permutations.
+  match:
+    exact: true
+    fuzzy: {enabled: false}
+    homoglyph: true
+
+lures:
+- description: "Vocabulary of this trade, beside the inherited general terms"
+  terms: [iban, transfer, mandate, statement, overdraft]
+  weight: 14
+
+- description: "Weak on their own, but common in phishing names"
+  terms: [branch, advisor, inbox]
+  weight: 7
+
+structure:
+  label_count:
+    description: "deep nesting is a strong phishing signal"
+    baseline: 2
+    weight_per_extra_label: 8
+    max_weight: 32
+  brand_in_subdomain_only:
+    description: "the brand sits in the subdomain, not in the registrable domain"
+    weight: 35
+  hyphen_count: {threshold: 2, weight_per_hyphen: 5, max_weight: 20}
+  total_length: {threshold: 25, weight_per_char: 0.5, max_weight: 15}
+  digit_ratio: {threshold: 0.15, weight: 10}
+  shannon_entropy:
+    description: "DGA-like random names"
+    threshold: 3.6
+    weight: 12
+  punycode: {weight: 18, only_if_anchor_matched: true}
+  numeric_lookalike:
+    description: "digit substitution like payl1o, vantab4nk"
+    weight: 20
+
+tlds:
+  # Further high-risk groups come from `common/tlds_highrisk.yaml`. What stands here
+  # is what is specific to this trade.
+  groups:
+  - name: "finance_themed"
+    description: "endings that read like a bank but have no check behind them"
+    weight: 18
+    list: [cash, money, credit, loan, capital, finance, exchange]
+  overrides:
+  - description: "endings with a registration check of their own"
+    tld: [bank, insurance]
+    weight: -10
+
+certificate:
+  san_count:
+    description: "bulk certificates across many hostnames"
+    threshold: 20
+    weight: 10
+  san_brand_fanout:
+    description: "one certificate with several brand-like names"
+    min_matching_sans: 3
+    weight: 25
+  validity_days:
+    description: "a very short validity is normal today, a very long one is not"
+    enabled: false
+  issuer_groups:
+  - name: "free"
+    weight: 5
+    match: ["Let's Encrypt", "ZeroSSL", "Google Trust Services", "Buypass"]
+  - name: "ev_ov"
+    description: "OV/EV certificates point to an identity check"
+    weight: -15
+    match_ev: true
+
+# domain_age, brand_protection_registrar, no_resolution and parking_detected come
+# from common/post_enrichment.yaml.
+post_enrichment:
+  privacy_registrar:
+    description: "registrars with a high share of abuse, or whois privacy"
+    weight: 10
+    list_file: "data/registrar_risk.yaml"
+  nameserver_patterns:
+    weight: 12
+    regex: ['(^|\.)cloudns\.', '(^|\.)freenom', '(^|\.)dnspod\.']
+
+custom:
+- id: "transfer-release"
+  description: "a transfer reference together with a call to action"
+  regex: "(transfer|mandate).{0,15}(release|reverse|approve|cancel)"
+  weight: 22
+- id: "one-time-code"
+  description: "the vocabulary around a second factor"
+  regex: "(sms|push|app)?otp[-_.]?(release|renew|reset|update)"
+  weight: 26
+
+combos:
+- when: [anchor, lure]
+  bonus: 22
+  description: "a brand plus a lure term in the same name"
+- when: [anchor, "tld_group:high-risk"]
+  bonus: 16
+- when: [brand_in_subdomain_only, lure]
+  bonus: 26
+- when: [anchor, "domain_age:<7d"]
+  bonus: 19
+- when: [anchor, punycode]
+  bonus: 16
+  description: "an IDN homograph: the brand in the skeleton plus punycode in the A-label"
+
+allowlist:
+  suppress:
+    exact: [paylio.com, paylio.me, kavano.com, vantabank.com]
+    suffix: [.paylio.com, .kavano.com, .vantabank.com]
+    regex: ['^[a-z0-9-]+\.cdn\.cloudflare\.net$']
+  downweight:
+  - match:
+      exact: [paylio-community.com]
+      suffix: [.paylio-community.com]
+    weight: -12
+    note: "an official secondary domain (false-positive feedback, §15.4)"
+
+notifications:
+- channel: webhook
+  min_severity: warning
+  target: "${WEBHOOK_BANKING}"
+- channel: email
+  min_severity: alert
+  target: "soc@example.org"
+  aggregate_window: 900

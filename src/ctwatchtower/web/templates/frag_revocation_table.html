@@ -1,0 +1,39 @@
+{# The same revocation hits as `frag_revocation_live.html`, only as table rows: the
+   findings screen is a table, the live stream is `div` rows. One template with a
+   switch inside would be harder to read than two small ones. #}
+{% for f in hits %}
+  <tr data-id="{{ f.leaf_sha256 }}" data-status="{{ f.status }}" class="revocation-hit">
+    <td class="small muted" style="white-space:nowrap;">{{ f.last_seen[:16].replace('T', ' ') }}</td>
+    <td style="white-space:nowrap;">
+      {% if f.status == 'new' %}<span class="sev-chip sev-alert"><span class="dot dot-alert"></span>new</span>
+      {% elif f.status == 'checked' %}<span class="small muted">checked</span>
+      {% else %}<span class="small muted">benign</span>{% endif %}
+    </td>
+    <td class="small muted">{{ f.hit_count }}x</td>
+    <td>
+      <span class="dom">{{ render_domain(f.names[0]) if f.names else '-' }}</span>
+      {% if f.names_total > 1 %}<span class="small muted">+{{ f.names_total - 1 }}</span>{% endif %}
+    </td>
+    <td class="small muted">{{ f.link_subject or f.revoked_issuer }}</td>
+    <td class="small muted" style="overflow-wrap:anywhere;">{{ f.reason[:70] }}</td>
+    <td>
+      <span class="revocation-buttons">
+        {% if f.status != 'checked' %}
+          <button class="btn btn-dashed" data-revocation-hit="{{ f.leaf_sha256 }}"
+                  data-status="checked">checked</button>
+        {% endif %}
+        {% if f.status != 'benign' %}
+          <button class="btn btn-dashed" data-revocation-hit="{{ f.leaf_sha256 }}"
+                  data-status="benign">benign</button>
+        {% endif %}
+      </span>
+    </td>
+  </tr>
+{% else %}
+  <tr><td colspan="7" class="small muted" style="padding:var(--space-4);">
+    {% if filtered %}Nothing found. The search covers domain and issuer.
+    {% else %}No certificate of a revoked issuer has turned up. That is the normal case.{% endif %}
+  </td></tr>
+{% endfor %}
+{# The script reads the hit count from here, as it does for the finding list. #}
+<tr hidden data-count="{{ hits|length }}"></tr>

@@ -1,0 +1,31 @@
+# Cloud hosters: their own abuse channels, a high noise rate. Points off rather than
+# suppression.
+allowlist:
+  downweight:
+    - match:
+        suffix: [".amazonaws.com", ".azurewebsites.net", ".herokuapp.com",
+                 ".vercel.app", ".netlify.app", ".pages.dev", ".workers.dev",
+                 ".cloudfront.net", ".googleusercontent.com", ".blob.core.windows.net"]
+      weight: -30
+      note: "cloud hoster"
+  suppress:
+    regex: ['^[a-z0-9-]+\.cdn\.cloudflare\.net$']
+    # Private links to managed services. Nobody can register anything under these
+    # names. The name is built by the provider out of the customer's name and
+    # therefore inevitably carries other people's brands. Measured: a single provider
+    # produced the highest-scoring false alarms of one tenant this way.
+    #
+    # The same mechanic, wider: every provider that hands its customers a subdomain
+    # carries other people's brands in the name. A hostname like
+    # `z4n-<brand>-smoke-test-pod28.zendesk.com` is a Zendesk tenant of that name,
+    # not an attack on it. Measured against real
+    # findings: this class made up the top of the scoring for one tenant and 1447 of
+    # 1945 feed entries for another.
+    suffix: [".privatelink.snowflake.com", ".privatelink.azure.com",
+             ".vpce.amazonaws.com", ".privatelink.confluent.cloud",
+             ".aws.snowflake.com", ".snowflake.app", ".snowflakecomputing.com",
+             ".zendesk.com", ".freshdesk.com", ".myshopify.com",
+             ".salesforce.com", ".force.com", ".service-now.com",
+             ".atlassian.net", ".sharepoint.com", ".postgres.database.azure.com",
+             ".database.windows.net", ".table.core.windows.net",
+             ".statuspage.io", ".zoom.us", ".okta.com", ".auth0.com"]

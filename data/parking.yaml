@@ -1,0 +1,20 @@
+# Parking providers (§7.4) - a domain whose nameservers end here shows a parking
+# page instead of content: `post_enrichment.parking_detected` (usually negative).
+#
+# `nameservers`: a suffix of the nameserver's name, case-insensitive.
+# Deliberately simple: nameservers only, no parking IPs - those change too often to
+# maintain by hand. Add a list of IPs if parking pages without their own NS show up.
+
+nameservers:
+  - sedoparking.com
+  - parkingcrew.net
+  - bodis.com
+  - above.com
+  - parklogic.com
+  - dan.com
+  - afternic.com
+  - uniregistrymarket.link
+  - ztomy.com
+  - parkpage.foundationapi.com
+  - cashparking.com
+  - smartname.com

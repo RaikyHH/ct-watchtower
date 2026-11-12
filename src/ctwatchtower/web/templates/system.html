@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}System - CT-Watchtower{% endblock %}
+{% block content %}
+{# The whole content is replaced as a fragment every 4 s. If the application is not
+   reachable, the old values stay and the box above says so. An empty page would be
+   worse than an old one. #}
+<div id="system-error" class="banner banner-error" role="alert" hidden></div>
+<div id="system-body"><p class="small muted">loading ...</p></div>
+{% endblock %}
+{% block script %}{% endblock %}

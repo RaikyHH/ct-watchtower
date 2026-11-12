@@ -1,0 +1,22 @@
+{% for f in rows %}
+  <tr data-id="{{ f.id }}" data-status="{{ f.status }}" tabindex="0"
+      aria-label="{{ SEV_LABEL.get(f.severity, f.severity) }}, score {{ f.score }}, status {{ STATUS_LABEL.get(f.status, f.status) }}">
+    <td class="small muted" style="white-space:nowrap;">{{ rel_time(f.first_seen) }}</td>
+    <td style="white-space:nowrap;">
+      <span class="sev-chip sev-{{ f.severity }}"><span class="dot dot-{{ f.severity }}"></span>{{ SEV_LABEL.get(f.severity, f.severity) }}</span>
+    </td>
+    <td><b class="dseg" style="font-size:22px;">{{ f.score }}</b></td>
+    <td><span class="dom">{{ render_domain(f.domain) }}</span></td>
+    <td class="mono">.{{ f.tld }}</td>
+    {# Before enrichment the registrar is almost always missing: dimmed, so the column
+       does not look like an error. #}
+    <td class="{{ 'dim' if not f.registrar }}" style="max-width:260px;">{{ f.registrar or '-' }}</td>
+    <td><span class="tag tag-neutral">{{ STATUS_LABEL.get(f.status, f.status) }}</span></td>
+  </tr>
+{% else %}
+  <tr><td colspan="7" class="small muted" style="padding:var(--space-4);">
+    {% if filtered %}No findings for this filter.
+    {% else %}No findings for this tenant yet.{% endif %}
+  </td></tr>
+{% endfor %}
+<tr hidden data-count="{{ rows|length }}"></tr>

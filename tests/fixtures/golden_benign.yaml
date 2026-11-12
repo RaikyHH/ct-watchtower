@@ -1,0 +1,87 @@
+# The counterpart to golden_malicious.yaml: what must never set off an alert (§15.1).
+#
+# All the brands are invented and come from `rules/examples/banking.yaml`.
+- domain: "www.paylio.com"
+  tenant: banking
+  max_score: 0
+  reason: "the allowlist"
+
+- domain: "paylio-community.com"
+  tenant: banking
+  max_score: 24
+  reason: "an official secondary domain, must not set off an alert"
+
+- domain: "d1a2b3c4.cloudfront.net"
+  tenant: banking
+  max_score: 9
+  reason: "no anchor, so the require_anchor cap holds"
+
+- domain: "shop.example.de"
+  tenant: banking
+  max_score: 9
+  reason: "any shop at all, without a brand"
+
+- domain: "login-secure-account-refund.top"
+  tenant: banking
+  max_score: 9
+  reason: "many lures, a risky TLD, but no brand. The require_anchor cap has to
+    push it down (§6.2)"
+
+# ── The brands in their own infrastructure: `owned_domains` of the anchor group ──
+- domain: "cardex.com"
+  tenant: banking
+  max_score: 0
+  reason: "the real brand domain"
+
+- domain: "vantabank.com"
+  tenant: banking
+  max_score: 0
+  reason: "the real brand domain"
+
+- domain: "paylio-terminal.device.paylio.net"
+  tenant: banking
+  max_score: 9
+  reason: "the brand's own devices under its own domain"
+
+# ── Brands that sit inside longer words: `exclude` of the anchor group ──────────
+- domain: "payroll-xyz.io"
+  tenant: banking
+  max_score: 0
+  reason: "payro. `payroll` is an everyday word that contains the brand"
+
+- domain: "stellar-ventures.com"
+  tenant: banking
+  max_score: 0
+  reason: "stellax. `stellar` is one replacement away and an everyday word"
+
+- domain: "cardexpress-logistics.com"
+  tenant: banking
+  max_score: 9
+  reason: "cardex. A six-letter brand is a prefix of longer words"
+
+- domain: "zelophobia-blog.com"
+  tenant: banking
+  max_score: 0
+  reason: "zelo. Four letters, found as a whole token only"
+
+# ── Cloud providers: a tenant of a subdomain is not an attacker ─────────────────
+- domain: "s3.ap-south-1.amazonaws.com"
+  tenant: banking
+  max_score: 9
+  reason: "a provider's own infrastructure, no brand of this tenant in it"
+
+- domain: "my-stellar-app.com"
+  tenant: banking
+  max_score: 9
+  reason: "lures without a brand stay below the cap"
+
+# ── The own-identity tenant ────────────────────────────────────────────────────
+- domain: "veltonia-travel.com"
+  tenant: own-identity
+  max_score: 9
+  reason: "velton. `veltonia` is a company of a similar name, excluded by hand"
+
+- domain: "intranet.velton.com"
+  tenant: own-identity
+  max_score: 9
+  reason: "the company's own domain (`owned_domains`)"

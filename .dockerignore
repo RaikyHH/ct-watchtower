@@ -1,0 +1,20 @@
+.git
+.venv
+.pytest_cache
+.ruff_cache
+__pycache__
+*.pyc
+*.egg-info
+.env
+*.sqlite3*
+*.db
+tests/
+feeds/
+*.md
+data/samples/
+# Productive rulesets with customer names belong neither in the repository (§14.5)
+# nor in the image - they live in the volume, or on the operator's own machine.
+rules/*.yaml
+!rules/_template.yaml
+
+backups/

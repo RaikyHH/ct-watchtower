@@ -1,0 +1,21 @@
+{# Findings per minute (Live) or per day (Findings). The scale is the highest value in
+   the window. A fixed limit would be a judgement the number does not carry. #}
+<div class="spectrum-head">
+  <span>Findings per {{ 'day' if days_mode else 'minute' }} ·
+    <b>{{ values | sum }}</b> {{ 'in 30 d' if days_mode else 'total' }} ·
+    peak <b>{{ values | max }}</b></span>
+  <span class="seg seg-small" role="group" aria-label="Period">
+    <button data-resolution="minute" aria-pressed="{{ 'false' if days_mode else 'true' }}">30 min</button>
+    <button data-resolution="day" aria-pressed="{{ 'true' if days_mode else 'false' }}">30 d</button>
+  </span>
+</div>
+<div class="spectrum-live" role="img"
+     aria-label="Findings per {{ 'day' if days_mode else 'minute' }}, last 30: {{ values | join(', ') }}">
+  {% for column in chart %}
+    <div class="column">{% for kind in column %}<i class="{{ kind }}"></i>{% endfor %}</div>
+  {% endfor %}
+</div>
+<div class="spectrum-scale">
+  <span>30 {{ 'd' if days_mode else 'min' }} ago</span>
+  <span>{{ 'today' if days_mode else 'now' }}</span>
+</div>

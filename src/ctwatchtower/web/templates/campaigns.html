@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Campaigns - CT-Watchtower{% endblock %}
+{% block content %}
+
+<div class="instruments">
+  <div class="span3">
+    <h1 class="screen-title">Campaigns</h1>
+    <span class="small muted">Findings that share a registrar, nameserver or network,
+      so probably the same hand.</span>
+  </div>
+  <div class="span3" style="grid-column:span 3;">
+    <span class="field-label">Sorting</span>
+    <div id="camp-sort" class="seg" role="group" aria-label="Sorting">
+      <button data-sort="newest" aria-pressed="true">Newest</button>
+      <button data-sort="largest" aria-pressed="false">Largest</button>
+      <button data-sort="score" aria-pressed="false">Highest score</button>
+    </div>
+  </div>
+  <div class="span2">
+    <span class="field-label">Clusters</span>
+    <b id="camp-count" class="dseg">-</b>
+  </div>
+</div>
+
+<div id="camp-list" class="range"></div>
+{% endblock %}
+{% block script %}{% endblock %}

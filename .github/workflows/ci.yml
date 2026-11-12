@@ -1,0 +1,62 @@
+name: CI
+
+# §14.2. The deliberate departures from the template there:
+#   * no `ruff format --check` - the code is written consistently by hand, and a
+#     formatting pass would be a diff over 29 files with nothing gained.
+#   * no mypy, no Trivy, no SBOM, no hadolint - those come with the publication.
+# The tests reach no external service: `tests/conftest.py` allows loopback only.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check src tests scripts
+
+      - name: Check the rulesets against the schema
+        run: python scripts/validate_rules.py
+
+      # The whole suite, including the golden set, and the coverage gate in the
+      # same pass. §15.5: the scoring and the ruleset are the one place with
+      # complete coverage. If it slips, the run breaks.
+      #
+      # Measured over *all* the tests, not over a selection of files: a branch in
+      # `rules/` that only `test_pseudo_tenants.py` reaches is covered all the same,
+      # and a narrower selection would demand a second test for it for nothing.
+      - name: The tests, the golden set and the coverage of scoring/ and rules/
+        run: >
+          pytest -q -p no:warnings
+          --cov=ctwatchtower.scoring --cov=ctwatchtower.rules
+          --cov-branch --cov-report=term-missing --cov-fail-under=100
+
+      # An application that reports phishing should not itself run with a known
+      # hole. If the run breaks, the message says which package it is.
+      - name: Check the dependencies for known vulnerabilities
+        # `--skip-editable`: our own package is not on PyPI and is not something
+        # there could be a vulnerability report against.
+        run: pip-audit --skip-editable --progress-spinner off
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t ct-watchtower:ci .
+      - name: Check the compose file
+        run: docker compose config --quiet

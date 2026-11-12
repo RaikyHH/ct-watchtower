@@ -1,0 +1,24 @@
+{% if error %}
+  <div class="error">{{ error }}</div>
+{% else %}
+  <div style="display:flex; align-items:flex-end; gap:14px;">
+    <b class="dseg">{{ result.score }}</b>
+    <span class="sev-chip sev-{{ result.severity or 'info' }}" style="padding-bottom:4px;">
+      <span class="dot dot-{{ result.severity or 'info' }}"></span>
+      {{ SEV_LABEL.get(result.severity, 'below the threshold') }}
+    </span>
+  </div>
+  <div class="dom small">{{ render_domain(cand.name) }}</div>
+  {% if cand.is_idn %}<div class="dom-uni">{{ render_domain(cand.unicode) }}</div>{% endif %}
+  {% for c in result.contributions %}
+    <div class="test-row"><span>{{ c.rule }}</span><b>{{ '%+g' % c.pts }}</b></div>
+  {% else %}
+    <div class="small muted">none. This name sets nothing off with the current rules.</div>
+  {% endfor %}
+  {% if result.combos_applied %}
+    <div class="test-row">
+      <span>Combo bonus · {{ result.combos_applied | join(', ') }}</span>
+      <b>{{ '%+g' % result.combo_bonus }}</b>
+    </div>
+  {% endif %}
+{% endif %}

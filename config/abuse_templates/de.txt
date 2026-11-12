@@ -1,0 +1,36 @@
+# Vorlage für den Abuse-Report (§17.2). Frei editierbar.
+# Erste Zeile nach den Kommentaren ist der Betreff, danach folgt der Text.
+# Platzhalter in geschweiften Klammern; unbekannte Werte erscheinen als „—".
+#   {domain} {registrable} {score} {severity} {matched} {first_seen}
+#   {issuer} {cert_not_before} {cert_sha256} {ct_log} {ct_index}
+#   {registrar} {domain_created} {nameservers} {a_records} {epp_status}
+#   {crtsh_url} {tenant}
+Missbrauchsmeldung: {domain}
+
+Sehr geehrte Damen und Herren,
+
+wir möchten Sie auf die Domain {domain} hinweisen, die über Sie registriert ist
+und nach unserer Einschätzung für Phishing oder Markenmissbrauch vorbereitet wird.
+
+Nachweis aus den Certificate-Transparency-Logs:
+  Domain:              {domain}
+  Registrierbare Form: {registrable}
+  Erstmals gesehen:    {first_seen}
+  CT-Log:              {ct_log}, Eintrag {ct_index}
+  Zertifikat:          ausgestellt von {issuer}, gültig ab {cert_not_before}
+  SHA-256:             {cert_sha256}
+  Nachprüfbar unter:   {crtsh_url}
+
+Registrierung:
+  Registrar:    {registrar}
+  Registriert:  {domain_created}
+  Nameserver:   {nameservers}
+  A-Records:    {a_records}
+  EPP-Status:   {epp_status}
+
+Auffällige Merkmale: {matched}
+
+Wir bitten Sie, den Sachverhalt zu prüfen und die nach Ihren Richtlinien
+erforderlichen Schritte einzuleiten. Für Rückfragen stehen wir zur Verfügung.
+
+Mit freundlichen Grüßen

@@ -1,0 +1,49 @@
+<div class="camp-grid">
+{% for c in cards %}
+  <article class="camp card">
+    <div class="cap-label cap-{{ c.top }}" aria-hidden="true"></div>
+    <div class="card-body">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+        <div style="display:flex; flex-direction:column; gap:4px; min-width:0;">
+          <span class="card-kicker">Shared:
+            <span class="mono" style="text-transform:none; letter-spacing:0; color:var(--color-text);">{{ c.cluster_key }}</span>
+            · highest severity {{ SEV_LABEL.get(c.top, c.top) }}</span>
+          <h2 class="card-title">{{ c.registrar or c.cluster_key }}</h2>
+          <span class="small muted">{{ c.size }} findings · active since {{ rel_time(c.first_seen) }} · last seen {{ rel_time(c.last_seen) }}</span>
+        </div>
+        <div style="text-align:right;">
+          <span class="field-label">max. score</span>
+          <b class="dseg" style="display:block; font-size:40px;">{{ c.max_score }}</b>
+        </div>
+      </div>
+
+      <div class="camp-counts">
+        {% for sev, label in [('alert', 'Alert'), ('warning', 'Warning'), ('info', 'Info')] %}
+          <span><span class="dot dot-{{ sev }}"></span><b>{{ c.counts[sev] }}</b>{{ label }}</span>
+        {% endfor %}
+      </div>
+
+      {# Every name opens its own finding. Before this you saw the cluster and could
+         not get into it. #}
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        {% for m in c.members %}
+          <button class="camp-finding" data-id="{{ m.id }}">
+            <span class="dom">{{ render_domain(m.domain) }}</span>
+            <span class="to">open &rarr;</span>
+          </button>
+        {% endfor %}
+        {% if c.rest %}
+          <span class="small muted">+{{ c.rest }} more</span>
+        {% endif %}
+      </div>
+    </div>
+  </article>
+{% else %}
+  <p class="small muted">
+    No clusters yet. Clustering goes by registrar, nameserver and network, and only
+    an enrichment delivers those.
+  </p>
+{% endfor %}
+</div>
+{% if more %}<button class="btn btn-wide" id="camp-all" style="margin-top:var(--space-4);">Show all</button>{% endif %}
+<span hidden data-count="{{ cards|length }}"></span>

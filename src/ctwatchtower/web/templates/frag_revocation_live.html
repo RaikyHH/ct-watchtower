@@ -1,0 +1,43 @@
+{# Certificates whose chain runs through a revoked link.
+
+   Deliberately its own template and not the finding list: there is no score and no
+   severity here. A certificate is revoked or it is not, there is nothing to weigh up.
+   What is here instead is which chain link it was caught by. #}
+{% for f in hits %}
+  <div class="live-row revocation-hit" data-id="{{ f.leaf_sha256 }}" data-status="{{ f.status }}">
+    <span class="time">{{ f.last_seen[:16].replace('T', ' ') }}</span>
+    <span class="state">
+      {% if f.status == 'new' %}<span class="sev-alert">new</span>
+      {% elif f.status == 'checked' %}<span class="muted">checked</span>
+      {% else %}<span class="muted">benign</span>{% endif %}
+    </span>
+    <span class="dom-row">
+      {{ render_domain(f.names[0]) if f.names else '-' }}
+      {% if f.names_total > 1 %}
+        <span class="small muted">+{{ f.names_total - 1 }} more</span>
+      {% endif %}
+    </span>
+    <span class="small muted">via {{ f.link_subject or f.revoked_issuer }}</span>
+    <span class="small muted">{{ f.hit_count }}x</span>
+    <span class="revocation-buttons">
+      {% if f.status != 'checked' %}
+        <button class="btn btn-dashed" data-revocation-hit="{{ f.leaf_sha256 }}"
+                data-status="checked">checked</button>
+      {% endif %}
+      {% if f.status != 'benign' %}
+        <button class="btn btn-dashed" data-revocation-hit="{{ f.leaf_sha256 }}"
+                data-status="benign">benign</button>
+      {% endif %}
+    </span>
+  </div>
+{% else %}
+  <p class="small muted" style="padding:var(--space-4);">
+    {% if filtered %}
+      Nothing found. The search covers domain and issuer.
+    {% else %}
+      No certificate of a revoked issuer has turned up. That is the normal case.
+    {% endif %}
+  </p>
+{% endfor %}
+{# The script in the bar above reads the count from here. #}
+<span hidden data-count="{{ hits|length }}"></span>

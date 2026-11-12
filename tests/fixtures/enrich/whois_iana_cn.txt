@@ -1,0 +1,7 @@
+domain:       CN
+
+organisation: China Internet Network Information Center (CNNIC)
+
+whois:        whois.cnnic.cn
+
+status:       ACTIVE

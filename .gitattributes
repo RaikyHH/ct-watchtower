@@ -1,0 +1,11 @@
+# LF in the repository, whatever the checkout platform. Without this a checkout on
+# Windows commits CRLF, and a shell script with CRLF fails inside the container with
+# a misleading "not found".
+* text=auto eol=lf
+
+# Vendored upstream data: never normalise, never show as a diff.
+data/public_suffix_list.dat -text -diff
+data/confusables.txt        -text -diff
+
+*.woff2 binary
+*.png   binary

@@ -1,0 +1,69 @@
+# The template from §5.4. Not an active tenant. A small, specific name space, where
+# fuzzy matching is especially valuable and the thresholds sit lower.
+#
+# `velton` is an invented company name. Put your own in its place.
+apiVersion: ctwatchtower/v2
+kind: RuleSet
+
+includes:
+- common/lures_en.yaml
+- common/tlds_highrisk.yaml
+- common/allowlist_cloud.yaml
+- common/post_enrichment.yaml
+
+tenant:
+  id: own-identity
+  name: "Your own identity and company"
+  description: "Your own names, and the classic defensive-registration blind spot"
+
+thresholds:
+  persist: 10
+  info: 12
+  warning: 21
+  alert: 32
+  enrich_from: 12
+  feed_from: 21
+
+scoring:
+  require_anchor: true
+  anchor_missing_cap: 8
+
+anchors:
+- description: "The company and its products"
+  terms: [velton, velton-group, veltondesk]
+  weight: 45
+  # A travel agency of a similar name draws certificates all the time. An exception
+  # for the word, not a suppression of the domain: a real typo attack has to stay
+  # findable.
+  exclude: [veltonia]
+  owned_domains: [velton.com, velton.net]
+  match:
+    exact: true
+    fuzzy: {enabled: true, max_distance: 2, min_term_length: 4}
+    homoglyph: true
+    permutations:
+      enabled: true
+      kinds: [omission, insertion, transposition, replacement, hyphenation,
+          bitsquatting, tld_swap]
+- description: "People who are worth impersonating"
+  terms: [firstname.lastname, firstnamelastname]
+  weight: 40
+
+structure:
+  label_count: {baseline: 2, weight_per_extra_label: 8, max_weight: 32}
+  brand_in_subdomain_only: {weight: 35}
+  hyphen_count: {threshold: 2, weight_per_hyphen: 5, max_weight: 20}
+  punycode: {weight: 18, only_if_anchor_matched: true}
+  numeric_lookalike: {weight: 20}
+
+tlds:
+  overrides:
+  - description: "here it is exactly the obvious TLDs that matter"
+    tld: [com, net, org, eu, io]
+    weight: 5
+
+combos:
+- when: [anchor, lure]
+  bonus: 11
+- when: [anchor, "tld_group:high-risk"]
+  bonus: 8

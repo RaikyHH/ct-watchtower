@@ -1,0 +1,130 @@
+name: ct-watchtower
+
+# Two services instead of the six in §13.2: one Flask process with a pipeline thread
+# and SQLite. No Postgres, no Redis.
+
+services:
+  certstream:
+    image: 0rickyy0/certstream-server-go:latest
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  app:
+    # The published image. `docker compose build` builds it locally instead, which is
+    # what the `build` key is for; without it compose pulls from the registry.
+    image: ${IMAGE:-ghcr.io/raikyhh/ct-watchtower}:${TAG:-latest}
+    build: .
+    restart: unless-stopped
+    depends_on: [certstream]
+    # Everything from `.env` reaches the container. Otherwise only the few variables
+    # listed below would take effect there, and the daily enrichment caps, say, would
+    # quietly stay on the code defaults. `.env` is not in the image (see
+    # .dockerignore) and not in the repository (.gitignore).
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      CERTSTREAM_URL: ws://certstream:8080/domains-only
+      DATABASE_PATH: /data/ctwatchtower.sqlite3
+      CT_USER_AGENT: ${CT_USER_AGENT:-CT-Watchtower}
+      # Off: a fresh start queries no registry and no DNS resolver (§16).
+      ENRICH_ENABLED: ${ENRICH_ENABLED:-false}
+      ENRICH_WHOIS_FALLBACK: ${ENRICH_WHOIS_FALLBACK:-false}
+      INGEST_QUEUE_SIZE: ${INGEST_QUEUE_SIZE:-10000}
+      RETENTION_DAYS: ${RETENTION_DAYS:-90}
+      DEDUPE_CERT_TTL: ${DEDUPE_CERT_TTL:-21600}
+      DEDUPE_FINDING_TTL: ${DEDUPE_FINDING_TTL:-86400}
+      RESCORE_DELTA: ${RESCORE_DELTA:-15}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      API_TOKEN: ${API_TOKEN:-}
+    # No login (§1.2), so bound to the loopback interface only (§13.2).
+    ports: ["127.0.0.1:${APP_PORT:-8000}:8000"]
+    volumes:
+      - db:/data
+      # Unlike §13.2: `rules/` is written by the UI, so not `:ro`. The named volume is
+      # filled from the image on the first start (_template.yaml, common/, examples/).
+      - rules:/app/rules
+      # The same for the configuration: deeplinks and the abuse templates are meant
+      # to be edited. On the first start Docker fills the empty volume from the
+      # image, so an update brings new defaults only where nothing was changed.
+      - config:/app/config
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # The nightly backup, same image, same volumes. No Docker socket: handing that into
+  # a container means handing it control of the host, a disproportionate price for a
+  # file copy. The copies land in the `backups/` folder next to the compose file,
+  # which is excluded from git and from the image.
+  backup:
+    image: ${IMAGE:-ghcr.io/raikyhh/ct-watchtower}:${TAG:-latest}
+    restart: unless-stopped
+    depends_on: [app]
+    command: ["python", "/app/scripts/backup.py"]
+    # The image brings the application's health check along; nobody listens on port
+    # 8000 here, and the service would sit there permanently marked "unhealthy".
+    healthcheck: { disable: true }
+    environment:
+      DATABASE_PATH: /data/ctwatchtower.sqlite3
+      BACKUP_AT: ${BACKUP_AT:-03:00}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+    volumes:
+      # Read-only on the data: this service copies, it changes nothing.
+      - db:/data:ro
+      - rules:/app/rules:ro
+      - config:/app/config:ro
+      - ./backups:/backups
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # Watches the web PKI itself: certificates whose chain runs through a revoked link.
+  # A service of its own and not a thread in the application, for two reasons: it
+  # needs the `/full-stream` channel with the whole chain, which the pipeline does not
+  # read at all, and Python shares one interpreter per process, so a second consumer
+  # would push the pipeline's throughput down.
+  #
+  # It hangs off the same database but writes rarely (a hit is a rare event). WAL and
+  # `busy_timeout` carry that.
+  ca-watch:
+    image: ${IMAGE:-ghcr.io/raikyhh/ct-watchtower}:${TAG:-latest}
+    restart: unless-stopped
+    depends_on: [app, certstream]
+    command: ["python", "/app/scripts/ca_watch.py",
+              "--db", "/data/ctwatchtower.sqlite3",
+              "--url", "ws://certstream:8080/full-stream"]
+    healthcheck: { disable: true }
+    environment:
+      DATABASE_PATH: /data/ctwatchtower.sqlite3
+      CT_USER_AGENT: ${CT_USER_AGENT:-CT-Watchtower}
+    volumes:
+      - db:/data
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  # The findings and the settings. Everything that must survive a restart.
+  db:
+  # The rulesets. The UI writes them, so they cannot live in the image.
+  rules:
+  # Deeplinks and abuse templates, editable and persistent.
+  config:

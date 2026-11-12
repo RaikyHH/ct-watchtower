@@ -1,0 +1,88 @@
+# The project's memory against regressions (§15.1).
+# Every missed finding moves here as a new case - cases are never defused.
+#
+# All the brands are invented and come from `rules/examples/banking.yaml`.
+- domain: "payli0-secure-login.top"
+  tenant: banking
+  min_score: 70
+  must_match: ["anchor:paylio", "tld:high-risk:top", "structure:numeric_lookalike"]
+
+- domain: "vantabank.com.clientportal.cfd"
+  tenant: banking
+  min_score: 70
+  must_match: ["structure:brand_in_subdomain_only"]
+
+- domain: "xn--pylio-4ve.com"          # pаylio.com with a Cyrillic a
+  tenant: banking
+  min_score: 60
+  must_match: ["punycode", "anchor:paylio"]
+
+- domain: "vantab4nk-release.xyz"
+  tenant: banking
+  min_score: 70
+  must_match: ["anchor:vantabank", "structure:numeric_lookalike"]
+
+- domain: "paylio-wallet-refund.cfd"
+  tenant: banking
+  min_score: 70
+  must_match: ["anchor:paylio", "lure:refund"]
+
+- domain: "northvault-iban-transfer.top"
+  tenant: banking
+  min_score: 70
+  must_match: ["anchor:northvault", "lure:iban"]
+
+# ── Cases close to the line ───────────────────────────────────────────────────
+# The cases above lie at 90-100 and have 20-30 points of room; a halved weighting
+# would not show up there. These here carry only two signals and therefore react
+# immediately to every shift in an anchor or a lure weight.
+- domain: "paylio-support.com"
+  tenant: banking
+  min_score: 45
+  max_score: 70
+  must_match: ["anchor:paylio", "lure:support"]
+
+- domain: "cardex-online.com"
+  tenant: banking
+  min_score: 40
+  max_score: 64
+  must_match: ["anchor:cardex", "lure:online"]
+
+- domain: "stellax-app.net"
+  tenant: banking
+  min_score: 45
+  max_score: 70
+  must_match: ["anchor:stellax"]
+
+# This covers the strong lure group (weight 14) - without this case a shift there
+# would stay unnoticed, because the cases above carry weak lures only.
+- domain: "paylio-login.com"
+  tenant: banking
+  min_score: 55
+  max_score: 80
+  must_match: ["anchor:paylio", "lure:login"]
+
+# An anchor plus a risky TLD, nothing else - this covers the TLD group weight.
+- domain: "paylio.top"
+  tenant: banking
+  min_score: 60
+  max_score: 85
+  must_match: ["anchor:paylio", "tld:high-risk:top"]
+
+# The short brands: found as a whole token, and then they count fully.
+- domain: "zelo-refund.cfd"
+  tenant: banking
+  min_score: 70
+  must_match: ["anchor:zelo", "lure:refund"]
+
+- domain: "payro-login.top"
+  tenant: banking
+  min_score: 70
+  must_match: ["anchor:payro", "lure:login"]
+
+# Phishing on another brand's infrastructure: the bucket name can be chosen freely,
+# so `amazonaws.com` must not be suppressed across the board.
+- domain: "paylio-login.s3.amazonaws.com"
+  tenant: banking
+  min_score: 60
+  must_match: ["anchor:paylio", "lure:login", "structure:brand_in_subdomain_only"]

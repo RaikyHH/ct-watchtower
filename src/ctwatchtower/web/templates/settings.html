@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Settings - CT-Watchtower{% endblock %}
+{% block content %}
+{% from "_macros.html" import help %}
+
+<div class="sys-head">
+  <div class="span4">
+    <h1 class="screen-title">Settings</h1>
+    <span class="small muted">Takes effect at once, no restart{{ help('Three layers,
+      the upper one wins: the default in the code, then .env, then whatever is here.
+      Only what was actually changed is stored; "reset" throws the entry away.
+      Secrets are never shown back, only whether one is set.') }}</span>
+  </div>
+</div>
+
+<div class="sys-grid" id="settings-form">
+  {% for g in groups %}
+    <section data-group="{{ g.ident }}">
+      <h2>{{ g.title }}</h2>
+      {% for f in g.fields %}
+        <div class="setting" data-field="{{ f.name }}">
+          <div class="setting-head">
+            <label for="set-{{ f.name }}"><b>{{ f.label }}</b></label>
+            {% if f.changed_here %}
+              <button class="link-reset" data-reset="{{ f.name }}"
+                      title="Drop the entry, then .env or the default applies again">changed here · reset</button>
+            {% else %}
+              <span class="small muted">from .env</span>
+            {% endif %}
+          </div>
+
+          {% if f.kind == 'bool' %}
+            <label class="switch">
+              <input type="checkbox" id="set-{{ f.name }}" data-name="{{ f.name }}"
+                     data-kind="bool" {{ 'checked' if f.value }}>
+              <span>{{ 'on' if f.value else 'off' }}</span>
+            </label>
+          {% elif f.kind == 'choice' %}
+            <select class="input" id="set-{{ f.name }}" data-name="{{ f.name }}" data-kind="choice">
+              {% for w in f.choice %}
+                <option value="{{ w }}" {{ 'selected' if w == f.value }}>{{ w or '- none -' }}</option>
+              {% endfor %}
+            </select>
+          {% elif f.kind == 'secret' %}
+            <div class="secret-row">
+              <input class="input" type="password" id="set-{{ f.name }}" data-name="{{ f.name }}"
+                     data-kind="secret" autocomplete="new-password"
+                     placeholder="{{ 'set · type a new one to replace it' if f.is_set else 'not set' }}">
+              {% if f.is_set %}<span class="tag tag-outline">set</span>{% endif %}
+            </div>
+          {% else %}
+            <div class="setting-value">
+              <input class="input" type="{{ 'number' if f.kind in ('int', 'float') else 'text' }}"
+                     id="set-{{ f.name }}" data-name="{{ f.name }}" data-kind="{{ f.kind }}"
+                     value="{{ f.value }}"
+                     {% if f.min is not none %}min="{{ f.min }}"{% endif %}
+                     {% if f.max is not none %}max="{{ f.max }}"{% endif %}>
+              {% if f.unit %}<span class="small muted">{{ f.unit }}</span>{% endif %}
+            </div>
+          {% endif %}
+
+          {% if f.help %}<p class="small muted setting-help">{{ f.help }}</p>{% endif %}
+        </div>
+      {% endfor %}
+    </section>
+  {% endfor %}
+</div>
+
+{# -- Revoked CA certificates ------------------------------------------------
+   Its own panel instead of a field in the grid: this is a list with an origin, not
+   a value. #}
+<section class="revocation" id="revocation">
+  <div class="revocation-head">
+    <h2>Revoked CA certificates</h2>
+    <span class="small muted" id="revocation-state">
+      {{ revocation_counts.get('total', 0) }} entries ·
+      {{ revocation_counts.get('onecrl', 0) }} from OneCRL ·
+      {{ revocation_counts.get('manual', 0) }} of our own{% if revocation_synced %} ·
+      last fetched {{ revocation_synced }}{% endif %}
+    </span>
+    <button class="btn" id="revocation-sync">Sync now</button>
+  </div>
+
+  <div class="revocation-new">
+    <select class="input" id="revocation-kind" aria-label="Kind">
+      <option value="sha256">SHA-256 of the certificate</option>
+      <option value="spki">subject|key hash</option>
+      <option value="issuer_serial">issuer|serial number</option>
+    </select>
+    <input class="input" id="revocation-value" placeholder="Value; for SHA-256 with or without colons">
+    <input class="input" id="revocation-name-input" placeholder="Name (optional)">
+    <input class="input" id="revocation-reason" placeholder="Why (optional)">
+    <button class="btn btn-primary" id="revocation-add">Add</button>
+  </div>
+  <span class="small muted" id="revocation-note" role="status"></span>
+
+  <div class="revocation-filter">
+    <input class="input" id="revocation-search" type="search" placeholder="Search name or reason">
+    <label class="small muted"><input type="checkbox" id="revocation-only-own"> own entries only</label>
+  </div>
+
+  <div class="revocation-table" id="revocation-list">
+    {% for e in revocation %}
+      <div class="revocation-row{{ ' is-off' if not e.active }}" data-id="{{ e.id }}"
+           data-source="{{ e.source }}"
+           data-search="{{ (e.name ~ ' ' ~ e.reason) | lower }}">
+        <span class="tag {{ 'tag-outline' if e.source == 'onecrl' else 'tag-inverse' }}">{{ e.source }}</span>
+        <span class="revocation-name">{{ e.name or '-' }}</span>
+        <span class="small muted mono">{{ e.kind }}</span>
+        <span class="small muted revocation-reason">{{ e.reason }}</span>
+        <span class="revocation-buttons">
+          <button class="btn btn-dashed" data-revocation-toggle="{{ e.id }}"
+                  data-active="{{ 1 if e.active else 0 }}">{{ 'switch off' if e.active else 'switch on' }}</button>
+          {% if e.source == 'manual' %}
+            <button class="btn btn-dashed" data-revocation-del="{{ e.id }}">delete</button>
+          {% endif %}
+        </span>
+      </div>
+    {% else %}
+      <p class="small muted">Nothing entered yet and nothing synced yet.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="save-bar">
+  <button id="settings-save" class="btn btn-primary btn-wide">Save</button>
+  <span id="settings-state" role="status"></span>
+  <span class="target">takes effect at once · <span class="mono">table settings</span></span>
+</div>
+{% endblock %}
+{% block script %}{% endblock %}

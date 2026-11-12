@@ -1,0 +1,17 @@
+# A real run with the example rulesets as active tenants. A project name of its own,
+# so the volumes (`db`, `rules`) of the normal stack stay untouched:
+#
+#   docker compose -p ctw-loadtest -f docker-compose.yml -f scripts/compose.loadtest.yml up -d --build
+#   curl -s 127.0.0.1:8001/api/v1/system/metrics
+#   docker compose -p ctw-loadtest -f docker-compose.yml -f scripts/compose.loadtest.yml down -v
+#
+# Paths are relative to the project directory (the folder of the first -f file).
+services:
+  app:
+    ports: !override ["127.0.0.1:8001:8000"]
+    volumes:
+      - ./rules/examples/authorities-post.yaml:/app/rules/authorities-post.yaml:ro
+      - ./rules/examples/own-identity.yaml:/app/rules/own-identity.yaml:ro
+      - ./rules/examples/financial-products.yaml:/app/rules/financial-products.yaml:ro
+      - ./rules/examples/crypto-wallets.yaml:/app/rules/crypto-wallets.yaml:ro
+      - ./rules/examples/online-shopping.yaml:/app/rules/online-shopping.yaml:ro

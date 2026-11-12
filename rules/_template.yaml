@@ -1,0 +1,62 @@
+# The base for a new tenant. NOT loaded as an active tenant: the UI copies this
+# file to `rules/<id>.yaml` and fills in the anchors.
+apiVersion: ctwatchtower/v2
+kind: RuleSet
+
+includes:
+- common/lures_en.yaml
+- common/tlds_highrisk.yaml
+- common/allowlist_cloud.yaml
+- common/post_enrichment.yaml
+
+tenant:
+  id: new-tenant
+  name: "New tenant"
+  description: "Enter here what is to be watched"
+  enabled: true
+  tlp: "clear"
+
+thresholds:
+  persist: 17
+  info: 24
+  warning: 37
+  alert: 64
+  enrich_from: 28
+  feed_from: 37
+
+scoring:
+  require_anchor: true
+  anchor_missing_cap: 9
+  max_combo_bonus: 64
+  top_n: 12
+
+# Without an anchor this tenant scores nothing beyond `anchor_missing_cap`.
+anchors: []
+
+structure:
+  label_count: {baseline: 2, weight_per_extra_label: 8, max_weight: 32}
+  brand_in_subdomain_only: {weight: 35}
+  hyphen_count: {threshold: 2, weight_per_hyphen: 5, max_weight: 20}
+  total_length: {threshold: 25, weight_per_char: 0.5, max_weight: 15}
+  digit_ratio: {threshold: 0.15, weight: 10}
+  shannon_entropy: {threshold: 3.6, weight: 12}
+  punycode: {weight: 18, only_if_anchor_matched: true}
+  numeric_lookalike: {weight: 20}
+
+certificate:
+  san_count: {threshold: 20, weight: 10}
+  san_brand_fanout: {min_matching_sans: 3, weight: 25}
+
+combos:
+- when: [anchor, lure]
+  bonus: 22
+  description: "a brand plus a lure term in the same name"
+- when: [anchor, "tld_group:high-risk"]
+  bonus: 16
+- when: [brand_in_subdomain_only, lure]
+  bonus: 26
+- when: [anchor, "domain_age:<7d"]
+  bonus: 19
+
+custom: []
+notifications: []

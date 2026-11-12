@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Live - CT-Watchtower{% endblock %}
+{% block content %}
+
+{# The instrument bar: everything that changes the board below it sits in one place.
+   The three counters double as severity filters. #}
+<div class="instruments">
+  <label>
+    <span class="field-label">Search</span>
+    <span class="search-field">
+      <input id="live-q" class="input" placeholder="Domain" aria-label="Filter by domain">
+      <kbd>/</kbd>
+    </span>
+  </label>
+
+  <label>
+    <span class="field-label">From score</span>
+    <b id="live-score-val" class="dseg" style="font-size:40px">0</b>
+    <input id="live-score" type="range" min="0" max="100" value="0" aria-label="Score threshold">
+  </label>
+
+  <div id="spectrum-box" class="spectrum span3" data-resolution="minute"></div>
+
+  {% for sev, label in [('alert', 'Alert'), ('warning', 'Warning'), ('info', 'Info')] %}
+    <button class="counter" data-sev="{{ sev }}" aria-pressed="false">
+      <span class="sev-chip sev-{{ sev }}"><span class="dot dot-{{ sev }}"></span>{{ label }}</span>
+      <b class="dseg">{{ counts[sev] }}</b>
+      <span class="small muted">Click to filter</span>
+    </button>
+  {% endfor %}
+</div>
+
+<div class="live-box">
+  <div class="live-head" aria-hidden="true">
+    <span>Time</span><span>Severity</span><span>Score</span><span>Domain</span>
+    <span>Strongest hit</span><span>TLD</span><span>Cert.</span>
+  </div>
+  <div id="live-scroll" class="live-scroll" tabindex="0"
+       aria-label="Live findings; j and k move, Enter opens">
+    <div id="live-rows" class="live-grid" role="grid" aria-label="Live findings">
+      {% for _ in range(8) %}
+        <div class="live-row skel-row" role="row" aria-hidden="true">
+          <span class="skel"></span><span class="skel"></span><span class="skel"></span>
+          <span class="skel"></span><span class="skel"></span><span class="skel"></span>
+          <span class="skel"></span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="live-foot">
+    <span class="keys">
+      <span><kbd>j</kbd>/<kbd>k</kbd> move, queries nothing</span>
+      <span><kbd>Enter</kbd> open</span>
+      <span><kbd>c</kbd> confirm</span>
+      <span><kbd>f</kbd> false positive</span>
+      <span><kbd>/</kbd> search</span>
+      <span><kbd>Esc</kbd> close</span>
+    </span>
+    <span id="live-state" role="status"></span>
+    <span id="live-count"></span>
+  </div>
+</div>
+{% endblock %}
+{% block script %}{% endblock %}

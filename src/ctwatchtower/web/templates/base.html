@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}CT-Watchtower{% endblock %}</title>
+{# Local instead of fonts.googleapis.com: otherwise every user's IP goes to Google. #}
+<link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+<link rel="stylesheet" href="{{ url_for('static', filename='fonts.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body data-tenant="{{ active or '' }}" data-screen="{{ screen }}">
+<div class="shell">
+
+  <header class="topbar">
+    <span class="nav-brand">CT&#8209;WATCHTOWER</span>
+    <nav class="nav" aria-label="Main navigation">
+      {% for title, entries in nav_groups %}
+        <span class="nav-group">{{ title }}</span>
+        {% for key, label in entries %}
+          <a href="{{ url_for('ui.' ~ key) }}{% if active %}?t={{ active }}{% endif %}"
+             {% if screen == key %}aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      {% endfor %}
+    </nav>
+    <span class="spacer"></span>
+
+    {% if tenants or pseudo %}
+      {# A `details` instead of a menu of our own: keyboard and Esc come from the
+         browser, and without a script the CSP can stay strict. #}
+      <details class="tenant-switch" id="tenant-switch">
+        <summary>
+          <span><span class="field-label">Tenant</span>
+            {# `active_name` instead of a loop over `tenants`: the pseudo tenants are
+               not in there and would otherwise stay nameless. #}
+            <b>{{ active_name or '-' }}</b></span>
+          <span aria-hidden="true">&#9662;</span>
+        </summary>
+        <div class="tenant-list" role="listbox">
+          {# The two pseudo tenants first, each with a divider below it: they are not
+             tenants but they sit where people look for them. Their ids are taken
+             (see `pseudo_tenants.py`), so there can be no real tenant of the same
+             name. #}
+          {% for ident, label in pseudo.items() %}
+            <a href="?t={{ ident }}" data-tenant-pick="{{ ident }}" role="option"
+               class="tenant-pseudo"
+               aria-selected="{{ 'true' if ident == active else 'false' }}">
+              <span>{{ label }}</span>
+            </a>
+          {% endfor %}
+          {% for t in tenants %}
+            <a href="?t={{ t.id }}" data-tenant-pick="{{ t.id }}" role="option"
+               aria-selected="{{ 'true' if t.id == active else 'false' }}">
+              <span>{{ t.name }}</span>
+              {% if not t.enabled %}<span class="tag tag-outline">disabled</span>
+              {% elif t.shadow %}<span class="tag tag-outline">trial mode</span>{% endif %}
+            </a>
+          {% endfor %}
+        </div>
+      </details>
+    {% else %}
+      <span class="small muted">No tenant yet</span>
+    {% endif %}
+
+    {# On Live the counters sit in the instrument bar and filter there; repeating them
+       here would mean showing the same number twice. #}
+    {% if (tenants or revoked_watch) and screen != 'live' %}
+      {# For the revoked watcher the same three tiles carry the triage state, not the
+         severity. There are no severities there. The labels have to say so,
+         otherwise "alert" counts something different than it does everywhere else. #}
+      <span class="head-counter" aria-label="Counters for the selected tenant">
+        <span class="dot dot-alert"></span>
+        <span><span class="field-label">{{ 'New' if revoked_watch else 'Alert' }}</span><b>{{ counts.alert }}</b></span>
+        <span class="dot dot-warning"></span>
+        <span><span class="field-label">{{ 'Checked' if revoked_watch else 'Warning' }}</span><b>{{ counts.warning }}</b></span>
+        <span class="dot dot-info"></span>
+        <span><span class="field-label">{{ 'Benign' if revoked_watch else 'Info' }}</span><b>{{ counts.info }}</b></span>
+      </span>
+    {% endif %}
+
+    <span id="an-live" class="readout on" title="Source of the certificate stream">Live</span>
+    <button id="pause-toggle" class="topbar-btn" aria-pressed="false">
+      <span id="an-pause" class="readout">Pause</span>
+    </button>
+    <button id="defang-toggle" class="topbar-btn"
+            aria-pressed="{{ 'true' if defang_on() else 'false' }}"
+            title="Write domain names as example[.]com so nobody clicks one by accident">
+      <span class="mono">[.]</span> Defang {{ 'on' if defang_on() else 'off' }}
+    </button>
+  </header>
+
+  <main class="content">{% block content %}{% endblock %}</main>
+</div>
+
+<div id="panel-host"></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block script %}{% endblock %}
+</body>
+</html>

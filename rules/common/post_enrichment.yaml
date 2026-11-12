@@ -1,0 +1,27 @@
+# Phase 2 (§7.9): these rules only take effect after the enrichment (RDAP/WHOIS,
+# DoH) and set off a rescoring. In phase 1 and in the test field they stay silent.
+post_enrichment:
+  domain_age:
+    - { max_age_days: 1, weight: 30 }
+    - { max_age_days: 7, weight: 22 }
+    - { max_age_days: 30, weight: 12 }
+    - { min_age_days: 365, weight: -25, description: "an old domain: strongly exonerating" }
+
+  # The precise lever against the own infrastructure of big brands (`amazon.dev`,
+  # `amazonaws.eu` and the like): no attacker registers those through MarkMonitor or
+  # Com Laude. -60 on its own cancels a typical anchor plus structure hit, which is
+  # necessary because some registries (EURid) serve no registration date over WHOIS
+  # and `domain_age` then does not help. Measured against 30,000 real certificates
+  # (2026-09-18). Under private PSL suffixes (`x.pages.dev`) the enrichment does not
+  # ask RDAP at all: the platform operator never exonerates the tenant of a subdomain.
+  brand_protection_registrar:
+    description: "a brand protection registrar: the domain very likely belongs to a brand owner"
+    weight: -60
+    list_file: data/registrar_brand_protection.yaml
+
+  no_resolution:
+    description: "a certificate exists but nothing resolves, often preparation"
+    weight: 8
+
+  parking_detected:
+    weight: -20

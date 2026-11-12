@@ -1,0 +1,28 @@
+{% for f in rows %}
+  {# `done` steps back without disappearing: whoever decided with c or f should see
+     that it took effect and still be able to find the row again. #}
+  <div class="live-row{{ ' done' if f.status in ('confirmed', 'false_positive', 'reported') }}"
+       role="row" id="live-row-{{ f.id }}" data-id="{{ f.id }}" data-status="{{ f.status }}"
+       aria-selected="false">
+    <span class="small muted">{{ rel_time(f.first_seen) }}</span>
+    <span class="sev-chip sev-{{ f.severity }}"><span class="dot dot-{{ f.severity }}"></span>{{ SEV_LABEL.get(f.severity, f.severity) }}</span>
+    <b class="dseg">{{ f.score }}</b>
+    <span class="dom-cell">
+      <span class="dom-row">
+        <span class="dom">{{ render_domain(f.domain) }}</span>
+        {% if f.status != 'new' %}<span class="tag">{{ STATUS_LABEL.get(f.status, f.status) }}</span>{% endif %}
+      </span>
+      {% if f.is_idn and f.unicode_form %}
+        <span class="dom-uni">IDN · Unicode form <span class="dom">{{ render_domain(f.unicode_form) }}</span> can deceive</span>
+      {% endif %}
+    </span>
+    <span class="mono muted">{{ first_match(f) }}</span>
+    <span class="mono">.{{ f.tld }}</span>
+    <span class="small">{{ f.cert_count }}x</span>
+  </div>
+{% else %}
+  <p class="small muted" style="padding:var(--space-4);">
+    Nothing has come in yet.
+  </p>
+{% endfor %}
+<span hidden data-count="{{ rows|length }}"></span>

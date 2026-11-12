@@ -1,0 +1,38 @@
+# Brand protection registrars (corporate registrars).
+#
+# Whoever registers here is almost always a company with a brand department of its
+# own: these registrars take no walk-in customers but manage portfolios for large
+# corporations. So a brand-like domain at one of these registrars very probably
+# belongs to the brand itself (Amazon: `amazon.dev`, `amazongamelift.com`, ...).
+#
+# Used by `post_enrichment.brand_protection_registrar` (a negative weight).
+# Deliberately NOT here: registrars with an open retail business, even where
+# corporations use them (Amazon Registrar/Route 53, Cloudflare, Google/Squarespace,
+# GoDaddy, Gandi, Key-Systems) - everybody registers over those, attackers included.
+#
+# `registrars`: a part of the name, matching as a substring, case-insensitive
+#               ("markmonitor" matches "MarkMonitor Inc.").
+# `iana_ids`:   the IANA registrar id out of RDAP, matching exactly (more robust
+#               than the name).
+
+registrars:
+  - markmonitor
+  - csc corporate domains
+  - corporation service company
+  - com laude
+  - nom-iq
+  - safenames
+  - brandsight
+  - godaddy corporate domains
+  - lexsynergy
+  - ports group
+  - nameshield
+  - safebrands
+  - ip twins
+  - authentic web
+  - abion
+
+iana_ids:
+  - 292   # MarkMonitor Inc.
+  - 299   # CSC Corporate Domains, Inc.
+  - 470   # Nom-IQ Limited dba Com Laude (amazon.dev)

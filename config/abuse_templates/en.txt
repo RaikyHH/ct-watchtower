@@ -1,0 +1,36 @@
+# Abuse report template (§17.2). Free to edit.
+# The first non-comment line is the subject, the rest is the body.
+# Placeholders in braces; unknown values appear as "-".
+#   {domain} {registrable} {score} {severity} {matched} {first_seen}
+#   {issuer} {cert_not_before} {cert_sha256} {ct_log} {ct_index}
+#   {registrar} {domain_created} {nameservers} {a_records} {epp_status}
+#   {crtsh_url} {tenant}
+Abuse report: {domain}
+
+Dear Sir or Madam,
+
+we would like to draw your attention to the domain {domain}, registered through
+your service, which in our assessment is being prepared for phishing or brand abuse.
+
+Evidence from the Certificate Transparency logs:
+  Domain:           {domain}
+  Registrable form: {registrable}
+  First seen:       {first_seen}
+  CT log:           {ct_log}, entry {ct_index}
+  Certificate:      issued by {issuer}, valid from {cert_not_before}
+  SHA-256:          {cert_sha256}
+  Verifiable at:    {crtsh_url}
+
+Registration:
+  Registrar:   {registrar}
+  Registered:  {domain_created}
+  Nameservers: {nameservers}
+  A records:   {a_records}
+  EPP status:  {epp_status}
+
+Matched indicators: {matched}
+
+Please review this case and take the steps required by your policies.
+We are happy to answer any questions.
+
+Kind regards

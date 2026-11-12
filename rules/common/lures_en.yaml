@@ -1,0 +1,10 @@
+# English lure terms (§5.2).
+lures:
+  - description: "Action and account vocabulary"
+    terms: [login, signin, secure, verify, verification, account, update, confirm,
+            auth, authenticate, wallet, payment, refund, billing, unlock, suspended]
+    weight: 14
+
+  - description: "Generic prefixes"
+    terms: [service, support, help, center, portal, online, my, app, web]
+    weight: 7

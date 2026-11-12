@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Findings - CT-Watchtower{% endblock %}
+{% block content %}
+
+<div class="instruments">
+  <div class="span2">
+    <h1 class="screen-title">{{ 'Revoked certificates' if revoked_watch else 'Findings' }}</h1>
+    {% if revoked_watch %}
+      <span class="small muted">Certificates whose chain runs through a revoked
+        link. Maintained under
+        <a href="{{ url_for('ui.settings') }}">Settings</a>.</span>
+    {% else %}
+      <div class="seg" id="sev-filter" role="group" aria-label="Filter by severity">
+        <button data-sev="" aria-pressed="true">All</button>
+        <button data-sev="info" aria-pressed="false">Info</button>
+        <button data-sev="warning" aria-pressed="false">Warning</button>
+        <button data-sev="alert" aria-pressed="false">Alert</button>
+      </div>
+    {% endif %}
+  </div>
+
+  <label class="span2">
+    <span class="field-label">Search, partial matches</span>
+    <span class="search-field">
+      <input id="findings-q" class="input" placeholder="Domain" aria-label="Search by domain">
+      <kbd>/</kbd>
+    </span>
+  </label>
+
+  <div>
+    <span class="field-label">Hits</span>
+    <b id="findings-count" class="dseg">-</b>
+  </div>
+
+  {% if not revoked_watch %}
+    <div id="spectrum-box" class="spectrum span3" data-resolution="day"></div>
+  {% else %}
+    <span class="small muted span3">A certificate either chains through a revoked
+      link or it does not. There are no severities and no trend here.</span>
+  {% endif %}
+</div>
+
+<div class="range" style="padding:0;">
+  <table class="table">
+    <thead>
+      {# The revoked watcher fills the same table with different content: no score, no
+         severity, but the chain link that matched. The headers have to say so,
+         otherwise the hit count sits under "Score". There is no sorting there: there
+         is nothing to order by except time, and that is the order already. #}
+      {% if revoked_watch %}
+        <tr>
+          {% for label in ['Last seen', 'State', 'Seen', 'Domain',
+                           'Revoked link', 'Reason', ''] %}
+            <th>{{ label }}</th>
+          {% endfor %}
+        </tr>
+      {% else %}
+        <tr>
+          {% for field, label in [('first_seen', 'Time'), ('severity', 'Severity'), ('score', 'Score'),
+                                 ('domain', 'Domain'), ('tld', 'TLD'), ('registrar', 'Registrar'),
+                                 ('status', 'Status')] %}
+            <th aria-sort="{{ 'descending' if field == 'first_seen' else 'none' }}">
+              <button data-sort="{{ field }}">{{ label }}</button>
+            </th>
+          {% endfor %}
+        </tr>
+      {% endif %}
+    </thead>
+    <tbody id="findings-rows">
+      {% for _ in range(6) %}<tr><td colspan="7"><span class="skel"></span></td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+{% block script %}{% endblock %}

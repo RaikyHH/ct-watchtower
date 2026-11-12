@@ -1,0 +1,29 @@
+# The deeplink buttons in the detail panel (§7.8) - plain links, no server-side call.
+# Extensible without a code change: every team has its own preferred tools.
+#
+# The placeholders: {domain} (the complete hostname), {registrable} (eTLD+1), {ip}
+# (the first A record address). A link whose placeholder has no value is not shown.
+# Values are inserted URL-encoded. Analysis services only - never a link onto the
+# suspicious domain itself.
+
+links:
+  - name: crt.sh
+    url: "https://crt.sh/?q={domain}"
+  - name: VirusTotal          # §7.7: by default only this link, no API call
+    url: "https://www.virustotal.com/gui/domain/{domain}"
+  - name: urlscan.io
+    url: "https://urlscan.io/domain/{domain}"
+  - name: Shodan
+    url: "https://www.shodan.io/search?query=hostname%3A{domain}"
+  - name: SecurityTrails
+    url: "https://securitytrails.com/domain/{domain}/dns"
+  - name: AbuseIPDB
+    url: "https://www.abuseipdb.com/check/{ip}"
+  - name: Google Safe Browsing
+    url: "https://transparencyreport.google.com/safe-browsing/search?url={domain}"
+  - name: Wayback Machine
+    url: "https://web.archive.org/web/*/{domain}"
+  - name: RDAP raw
+    url: "https://rdap.org/domain/{registrable}"
+  - name: DNS (dnsviz)
+    url: "https://dnsviz.net/d/{domain}/analyze/"
