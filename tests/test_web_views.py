@@ -682,6 +682,32 @@ def test_no_cors_permission_for_foreign_origins(client, tenant):
     assert "Access-Control-Allow-Origin" not in res.headers
 
 
+def test_a_field_without_a_value_does_not_get_the_empty_state_padding(client, finding):
+    """`.empty` is the empty state of a whole screen and carries 48px of padding.
+
+    A field in the detail panel has no value far more often than not, and it used to
+    carry the same class name. Every one of the eight registration fields then became
+    a flex box with 48px of padding, which blew the panel apart - and it only showed
+    with the enrichment switched off, where every field is empty at once.
+
+    The dead-rule test above cannot see this: both classes were called `empty`, so it
+    was satisfied. This one pins the two apart by name.
+    """
+    body = client.get(f"/ui/finding/{finding['id']}").get_data(as_text=True)
+    fields = re.findall(r'class="value([^"]*)"', body)
+    assert fields, "no value fields in the panel - was the template rebuilt?"
+    assert not any("empty" in f for f in fields), (
+        "a field carries the screen's empty-state class", fields)
+
+    css = (Path(__file__).resolve().parents[1] / "src/ctwatchtower/web/static/app.css").read_text(
+        encoding="utf-8"
+    )
+    screen = re.search(r"(?<![\w.-])\.empty\s*\{[^}]*\}", css)
+    assert screen and "padding:48px" in screen.group(0).replace(" ", ""), (
+        "the screen empty state lost its padding, so this test no longer proves anything"
+    )
+
+
 def test_no_dead_rules_in_the_stylesheet():
     """Every class in the stylesheet has to be produced somewhere.
 

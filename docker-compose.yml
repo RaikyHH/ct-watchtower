@@ -7,6 +7,21 @@ services:
   certstream:
     image: 0rickyy0/certstream-server-go:latest
     restart: unless-stopped
+    environment:
+      # The proxy, if your network only reaches outwards through one. Both
+      # spellings, because the tools disagree: Python's `urllib` and `httpx` read
+      # the lower-case ones, Go (the certstream service) reads the upper-case ones,
+      # and curl inside the container reads either. Empty means "no proxy".
+      #
+      # `no_proxy` has to name the neighbouring containers, otherwise a request to
+      # `certstream` is sent to a proxy that cannot reach it. The cloud metadata
+      # address belongs in there too: it must never leave through a proxy.
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,certstream,169.254.169.254}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,certstream,169.254.169.254}
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
@@ -30,6 +45,20 @@ services:
       - path: .env
         required: false
     environment:
+      # The proxy, if your network only reaches outwards through one. Both
+      # spellings, because the tools disagree: Python's `urllib` and `httpx` read
+      # the lower-case ones, Go (the certstream service) reads the upper-case ones,
+      # and curl inside the container reads either. Empty means "no proxy".
+      #
+      # `no_proxy` has to name the neighbouring containers, otherwise a request to
+      # `certstream` is sent to a proxy that cannot reach it. The cloud metadata
+      # address belongs in there too: it must never leave through a proxy.
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,certstream,169.254.169.254}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,certstream,169.254.169.254}
       CERTSTREAM_URL: ws://certstream:8080/domains-only
       DATABASE_PATH: /data/ctwatchtower.sqlite3
       CT_USER_AGENT: ${CT_USER_AGENT:-CT-Watchtower}
@@ -75,6 +104,20 @@ services:
     # 8000 here, and the service would sit there permanently marked "unhealthy".
     healthcheck: { disable: true }
     environment:
+      # The proxy, if your network only reaches outwards through one. Both
+      # spellings, because the tools disagree: Python's `urllib` and `httpx` read
+      # the lower-case ones, Go (the certstream service) reads the upper-case ones,
+      # and curl inside the container reads either. Empty means "no proxy".
+      #
+      # `no_proxy` has to name the neighbouring containers, otherwise a request to
+      # `certstream` is sent to a proxy that cannot reach it. The cloud metadata
+      # address belongs in there too: it must never leave through a proxy.
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,certstream,169.254.169.254}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,certstream,169.254.169.254}
       DATABASE_PATH: /data/ctwatchtower.sqlite3
       BACKUP_AT: ${BACKUP_AT:-03:00}
       BACKUP_KEEP: ${BACKUP_KEEP:-14}
@@ -109,6 +152,20 @@ services:
               "--url", "ws://certstream:8080/full-stream"]
     healthcheck: { disable: true }
     environment:
+      # The proxy, if your network only reaches outwards through one. Both
+      # spellings, because the tools disagree: Python's `urllib` and `httpx` read
+      # the lower-case ones, Go (the certstream service) reads the upper-case ones,
+      # and curl inside the container reads either. Empty means "no proxy".
+      #
+      # `no_proxy` has to name the neighbouring containers, otherwise a request to
+      # `certstream` is sent to a proxy that cannot reach it. The cloud metadata
+      # address belongs in there too: it must never leave through a proxy.
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,certstream,169.254.169.254}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,certstream,169.254.169.254}
       DATABASE_PATH: /data/ctwatchtower.sqlite3
       CT_USER_AGENT: ${CT_USER_AGENT:-CT-Watchtower}
     volumes:

@@ -243,7 +243,10 @@ kbd{font:600 var(--text-sm) var(--font-mono);color:var(--color-text);border:var(
 .bar{display:block;height:10px;background:var(--color-surface-2)} .bar>i{display:block;height:100%;background:var(--color-text)} .contrib.neg .bar>i{background:var(--pattern-neg)}
 .grid2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:var(--border) solid var(--color-divider)}
 .grid2>div{padding:8px 8px 8px 0;border-bottom:var(--border) solid var(--color-divider);display:flex;flex-direction:column;min-width:0}
-.grid2 .value{font-size:var(--text-md);overflow-wrap:anywhere} .grid2 .value.empty{color:var(--color-text-dim)}
+.grid2 .value{font-size:var(--text-md);overflow-wrap:anywhere}
+/* A field with no value. Deliberately not `.empty`: that is the empty state of a
+   whole screen and carries 48px of padding - on a field it blows the panel up. */
+.grid2 .value.blank{color:var(--color-text-dim)}
 .hint-row{display:flex;gap:var(--space-2);align-items:center;font-size:var(--text-md)}
 .exoneration{border:var(--border-strong) solid var(--color-text);padding:var(--space-3) 14px;display:flex;flex-direction:column;gap:10px}
 .exoneration-buttons{display:flex;flex-wrap:wrap;gap:var(--space-2)}

@@ -105,7 +105,7 @@
             <span class="field-label normal">{{ label }}</span>
             {# Unknown stays visibly empty, never invented. Dimmed, so nine empty
                fields do not look like an error. #}
-            <span class="value {{ 'empty' if value in (None, '', []) }}">{{ value if value not in (None, '', []) else '-' }}</span>
+            <span class="value {{ 'blank' if value in (None, '', []) }}">{{ value if value not in (None, '', []) else '-' }}</span>
           </div>
         {% endfor %}
       </div>

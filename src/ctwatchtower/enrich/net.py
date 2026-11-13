@@ -8,6 +8,7 @@ import logging
 import socket
 import threading
 import time
+import urllib.request
 from datetime import UTC, datetime, timedelta
 from datetime import time as dtime
 
@@ -132,13 +133,64 @@ def _is_public(host: str) -> bool:
     return True
 
 
+def proxy_mounts() -> dict[str, httpx.BaseTransport]:
+    """Transports per scheme that honour `http_proxy`, `https_proxy` and `no_proxy`.
+
+    httpx reads those variables by itself - but only for the transport it builds. We
+    bring our own (the SSRF guard above), and passing `transport=` turns the
+    automatic handling off completely: measured with httpx 0.28, a client with a
+    custom transport ignores `HTTPS_PROXY` without a word. So the mounts are
+    assembled here by hand.
+
+    The parsing is left to `urllib.request`, which reads both spellings of each
+    variable and already understands what `no_proxy` entries like `.internal`,
+    `localhost` or a bare address mean. Writing that again would only add a second,
+    worse implementation.
+    """
+    proxies = urllib.request.getproxies()
+    mounts: dict[str, httpx.BaseTransport] = {}
+    for scheme in ("http", "https"):
+        url = proxies.get(scheme)
+        mounts[f"{scheme}://"] = PublicNetworkTransport(proxy=url) if url else PublicNetworkTransport()
+    return mounts
+
+
+class _ProxyAwareTransport(httpx.BaseTransport):
+    """Picks the transport per request, so `no_proxy` can decide per host.
+
+    httpx binds a proxy to a transport, and a transport does not see the request
+    before it is chosen. `no_proxy` is a per-host decision, so the choice has to
+    happen here.
+    """
+
+    def __init__(self) -> None:
+        self._mounts = proxy_mounts()
+        self._direct = PublicNetworkTransport()
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        host = request.url.host
+        if urllib.request.proxy_bypass(host):
+            return self._direct.handle_request(request)
+        return self._mounts[f"{request.url.scheme}://"].handle_request(request)
+
+    def close(self) -> None:
+        self._direct.close()
+        for transport in self._mounts.values():
+            transport.close()
+
+
 def client(accept: str) -> httpx.Client:
-    """A client with a connection pool per source, with no route into our network."""
+    """A client with a connection pool per source, with no route into our network.
+
+    Goes through `http_proxy`/`https_proxy` when they are set, and straight out for
+    everything `no_proxy` names - which is what keeps the local certstream and a
+    cloud metadata address from being sent to a proxy.
+    """
     return httpx.Client(
         timeout=settings.enrich_timeout,
         headers={"User-Agent": settings.ct_user_agent, "Accept": accept},
         follow_redirects=True,
-        transport=PublicNetworkTransport(),
+        transport=_ProxyAwareTransport(),
     )
 
 

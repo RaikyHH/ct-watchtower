@@ -8,6 +8,7 @@ could come about, the missing contact detail prevents it already.
 from __future__ import annotations
 
 import threading
+import urllib.request
 
 import httpx
 import pytest
@@ -315,3 +316,64 @@ def test_a_scan_counter_does_not_cripple_the_system_screen(tmp_path, monkeypatch
         assert quota.status()["counts"]["voellig:new"] == 1
     finally:
         conn.close()
+
+# ─────────────────────── Going out through a proxy ───────────────────────
+
+
+def test_the_enrichment_goes_through_the_proxy_variables(monkeypatch) -> None:
+    """`http_proxy`, `https_proxy` and `no_proxy` have to reach the enrichment.
+
+    httpx reads them by itself, but only for a transport it builds. We pass our own
+    (the SSRF guard), and that switches the automatic handling off without a word:
+    measured with httpx 0.28, `Client(transport=...)` ignores `HTTPS_PROXY`. In a
+    network that only reaches outwards through a proxy, every RDAP, DoH and scan
+    request then failed with a timeout and nothing said why.
+    """
+    from ctwatchtower.enrich.net import client
+
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.setenv("HTTP_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+
+    with client("application/json") as http:
+        for scheme in ("http://", "https://"):
+            pool = http._transport._mounts[scheme]._pool
+            proxy_url = getattr(pool, "_proxy_url", None)
+            assert proxy_url is not None, f"{scheme} does not go through the proxy"
+            assert proxy_url.host == b"proxy.invalid"
+
+
+def test_no_proxy_still_goes_out_directly(monkeypatch) -> None:
+    """The local certstream and a cloud metadata address must not be sent to a proxy.
+
+    Without this, `no_proxy` would be ignored and a request to the neighbouring
+    container would travel through a proxy that cannot reach it.
+    """
+    from ctwatchtower.enrich.net import PublicNetworkTransport, client
+
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.setenv("NO_PROXY", "certstream,rdap.org,.internal")
+
+    with client("application/json") as http:
+        transport = http._transport
+        for host in ("certstream", "rdap.org", "host.internal"):
+            request = httpx.Request("GET", f"https://{host}/x")
+            chosen = (transport._direct if urllib.request.proxy_bypass(request.url.host)
+                      else transport._mounts["https://"])
+            assert chosen is transport._direct, f"{host} would go through the proxy"
+            assert isinstance(chosen, PublicNetworkTransport)
+
+
+def test_without_the_variables_nothing_changes(monkeypatch) -> None:
+    """No proxy set means a direct connection, as before."""
+    from ctwatchtower.enrich.net import client
+
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
+                 "NO_PROXY", "no_proxy", "ALL_PROXY", "all_proxy"):
+        monkeypatch.delenv(name, raising=False)
+
+    with client("application/json") as http:
+        for scheme in ("http://", "https://"):
+            pool = http._transport._mounts[scheme]._pool
+            assert getattr(pool, "_proxy_url", None) is None
