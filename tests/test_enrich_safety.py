@@ -377,3 +377,23 @@ def test_without_the_variables_nothing_changes(monkeypatch) -> None:
         for scheme in ("http://", "https://"):
             pool = http._transport._mounts[scheme]._pool
             assert getattr(pool, "_proxy_url", None) is None
+
+def test_the_ssrf_guard_still_holds_behind_a_proxy(monkeypatch) -> None:
+    """The proxy must not become a way around the guard.
+
+    The transport is chosen per request now. If one of the two branches were a plain
+    `httpx.HTTPTransport`, a redirect to `169.254.169.254` would travel to the proxy
+    - and a proxy usually does reach the internal network. Both branches have to be
+    the guarded transport.
+    """
+    from ctwatchtower.enrich.net import PublicNetworkTransport, client
+
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.setenv("https_proxy", "http://proxy.invalid:3128")
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+
+    with client("application/json") as http:
+        transport = http._transport
+        branches = [transport._direct, *transport._mounts.values()]
+        assert all(isinstance(b, PublicNetworkTransport) for b in branches), branches
